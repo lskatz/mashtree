@@ -7,7 +7,6 @@ use strict;
 use warnings;
 use Data::Dumper;
 use Getopt::Long;
-use List::MoreUtils qw/uniq/;
 use File::Temp qw/tempdir tempfile/;
 use File::Basename qw/basename dirname fileparse/;
 use Bio::Tree::DistanceFactory;
@@ -433,6 +432,16 @@ sub openFastq{
   }
   return $fh;
 }
+
+# Lifted from List::MoreUtils
+sub uniq (@)
+{
+    my %seen = ();
+    my $k;
+    my $seen_undef;
+    grep { defined $_ ? not $seen{ $k = $_ }++ : not $seen_undef++ } @_;
+}
+
 
 sub usage{
   "$0: use distances from Mash (min-hash algorithm) to make a NJ tree
