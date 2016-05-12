@@ -13,7 +13,7 @@ Create a tree using Mash distances
       --tempdir                 If not specified, one will be made for you
                                 and then deleted at the end of this script.
       --numcpus            1    This script uses Perl threads.
-      --truncLength        100  How many characters to keep in a filename
+      --truncLength        250  How many characters to keep in a filename
       --warn-on-duplicate       Warn instead of die when a duplicate
                                 genome name is found
       --reps               0    How many bootstrap repetitions to run;
