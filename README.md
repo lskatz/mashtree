@@ -1,6 +1,10 @@
 # mashtree
 Create a tree using Mash distances
 
+## Examples
+
+    mashtree.pl *.fastq.gz > tree.dnd
+    mashtree.pl --reps 100 --numcpus 12 --validate-reads *.fastq.gz > tree.dnd
 
 ## Usage
 
