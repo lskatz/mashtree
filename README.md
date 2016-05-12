@@ -28,3 +28,8 @@ Create a tree using Mash distances
       MASH SKETCH OPTIONS
       --genomesize   5000000
       --mindepth     2
+
+## Requirements
+
+* Mash >= v1.1
+* Perl with multithreading
