@@ -19,6 +19,7 @@ use threads::shared;
 
 local $0=basename $0;
 my @fastqExt=qw(.fastq.gz .fastq .fq.gz .fq);
+my @fastaExt=qw(.fasta .fas .mfa .fa);
 my $fhStick :shared;  # A thread can only open a fastq file if it has the talking stick.
 
 # Smart log messaging with thread IDs
@@ -47,6 +48,7 @@ sub main{
 
   die usage() if($$settings{help});
 
+  # "reads" are either fasta assemblies or fastq reads
   my @reads=@ARGV;
   die usage() if(@reads < 2);
 
@@ -103,6 +105,7 @@ sub main{
   }
 
   print $bs_tree->as_text('newick');
+  print "\n";
   
   return 0;
 }
@@ -115,6 +118,8 @@ sub validateFastq{
   # Check whether the filenames are unique enough
   my %seen;
   for my $r(@$reads){
+    my($name,$dir,$ext)=fileparse($r,@fastqExt);
+    next if(!$ext);
     my $trunc=_truncateFilename($r,$settings);
     if($seen{$trunc}){
       my $msg="I have already seen $r as $seen{$trunc} (truncated name: $trunc)";
@@ -127,10 +132,14 @@ sub validateFastq{
     $seen{$trunc}=$r;
   }
 
+
   # Check whether there could be enough reads in the read set.
   # Do this by going to the 10k-th line and seeing if we've
   # reached the end of the file yet.
   for my $r(@$reads){
+    my($name,$dir,$ext)=fileparse($r,@fastqExt);
+    next if(!$ext);
+
     my $fastqFh=openFastq($r,$settings);
     my $numLines=0;
     while(<$fastqFh>){
@@ -373,6 +382,7 @@ sub createTree{
   my $treeObj = $dfactory->make_tree($matrix);
   open(TREE,">","$outdir/tree.dnd") or die "ERROR: could not open $outdir/tree.dnd: $!";
   print TREE $treeObj->as_text("newick");
+  print TREE "\n";
   close TREE;
 
   return $treeObj;
@@ -445,7 +455,9 @@ sub uniq (@)
 
 sub usage{
   "$0: use distances from Mash (min-hash algorithm) to make a NJ tree
-  Usage: $0 *.fastq.gz > tree.dnd
+  Usage: $0 *.fastq.gz *.fasta > tree.dnd
+  NOTE: fasta files are read as assembly files; fastq files
+        are read as raw reads
   --tempdir                 If not specified, one will be made for you
                             and then deleted at the end of this script.
   --numcpus            1    This script uses Perl threads.
