@@ -252,7 +252,7 @@ sub mashSketch{
     # Do different things depending on fastq vs fasta
     my $sketchXopts="";
     if(grep {$_ eq $fileExt} @fastqExt){
-      $sketchXopts.="-c 20 -m $$settings{mindepth} -g $$settings{genomesize} ";
+      $sketchXopts.="-m $$settings{mindepth} -g $$settings{genomesize} ";
     } elsif(grep {$_ eq $fileExt} @fastaExt) {
       $sketchXopts.=" ";
     } else {
