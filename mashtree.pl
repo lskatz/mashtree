@@ -247,6 +247,18 @@ sub mashSketch{
 
   my @msh;
   while(defined(my $fastq=$Q->dequeue)){
+    my($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt);
+
+    # Do different things depending on fastq vs fasta
+    my $sketchXopts="";
+    if(grep {$_ eq $fileExt} @fastqExt){
+      $sketchXopts.="-c 20 -m $$settings{mindepth} -g $$settings{genomesize} ";
+    } elsif(grep {$_ eq $fileExt} @fastaExt) {
+      $sketchXopts.=" ";
+    } else {
+      logmsg "WARNING: I could not understand what kind of file this is by its extension ($fileExt): $fastq";
+    }
+      
     logmsg "Sketching $fastq";
     my $outPrefix="$sketchDir/".basename($fastq);
     if(-e "$outPrefix.msh"){
@@ -254,7 +266,7 @@ sub mashSketch{
     } elsif(-s $fastq < 1){
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
     } else {
-      system("mash sketch -k 21 -s 10000 -m $$settings{mindepth} -c 10 -g $$settings{genomesize} -o $outPrefix $fastq > /dev/null 2>&1");
+      system("mash sketch -k 21 -s 10000 $sketchXopts -o $outPrefix $fastq > /dev/null 2>&1");
       die if $?;
     }
 
