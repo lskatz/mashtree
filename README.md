@@ -8,7 +8,9 @@ Create a tree using Mash distances
 
 ## Usage
 
-    mashtree.pl: use distances from Mash (min-hash algorithm) to make a NJ tree
+    mashtree.pl: use distances from Mash (min-hash algorithm) to make a NJ tree.
+    Input files can be fastq or fasta.  Fastq files are assumed to be reads
+    while fasta will be assumed to be assemblies.
       Usage: mashtree.pl *.fastq.gz > tree.dnd
       --tempdir                 If not specified, one will be made for you
                                 and then deleted at the end of this script.
