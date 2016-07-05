@@ -10,27 +10,20 @@ use Getopt::Long;
 use File::Temp qw/tempdir tempfile/;
 use File::Basename qw/basename dirname fileparse/;
 use File::Copy qw/copy/;
-use Bio::Tree::DistanceFactory;
-use Bio::Matrix::IO;
-use Bio::Tree::Statistics;
 
 use threads;
 use Thread::Queue;
 use threads::shared;
 
-local $0=basename $0;
-my @fastqExt=qw(.fastq.gz .fastq .fq.gz .fq);
-my @fastaExt=qw(.fasta .fas .mfa .fa);
-my $fhStick :shared;  # A thread can only open a fastq file if it has the talking stick.
+use FindBin;
+use lib "$FindBin::RealBin/../lib/perl5";
+use Mashtree qw/logmsg @fastqExt @fastaExt/;
+use Bio::Tree::DistanceFactory;
+use Bio::Matrix::IO;
+use Bio::Tree::Statistics;
 
-# Smart log messaging with thread IDs
-sub logmsg{ 
-  my $tid=threads->tid || 0;
-  if($tid > 0){
-    $tid = " (TID$tid)";
-  }
-  print STDERR "$0$tid: @_\n";
-}
+local $0=basename $0;
+my $fhStick :shared;  # A thread can only open a fastq file if it has the talking stick.
 
 exit main();
 
