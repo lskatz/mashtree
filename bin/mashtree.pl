@@ -29,7 +29,7 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help tempdir=s numcpus=i genomesize=i mindepth=i truncLength=i warn-on-duplicate kmerlength=i)) or die $!;
+  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth=i truncLength=i warn-on-duplicate kmerlength=i)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -38,7 +38,7 @@ sub main{
 
   # Mash-specific options
   $$settings{genomesize}||=5000000;
-  $$settings{mindepth}||=2;
+  $$settings{mindepth}||=5;
 
   die usage() if($$settings{help});
 
@@ -54,49 +54,15 @@ sub main{
 
   logmsg "$0 on ".scalar(@reads)." files";
 
-  # This step will return an empty array list if there are no reps
-  my $repsDirs=makeBootstrapReads(\@reads,$$settings{reps},$settings);
+  my $sketches=sketchAll(\@reads,"$$settings{tempdir}",$settings);
 
-  my $primarySketches=sketchAll(\@reads,"$$settings{tempdir}/msh",$settings);
+  my $distances=mashDistance($sketches,$$settings{tempdir},$settings);
 
-  my @bsSketches;
-  for my $rep(@$repsDirs){
-    my $bsSketches=sketchAll([glob("$rep/*.fastq $rep/*.fastq.gz")],$rep,$settings);
-    push(@bsSketches,$bsSketches);
-  }
-  
+  my $phylip = distancesToPhylip($distances,$$settings{tempdir},$settings);
 
-  # Now that the sketches are all done, do the same steps on both
-  # bootstrap samples and the real sample set.
-  my @trees;
-  my @sketches=($primarySketches, @bsSketches);
-  for(my $i=0;$i<@sketches;$i++){
+  my $treeObj = createTree($phylip,$$settings{tempdir},$settings);
 
-    my $subTempdir="$$settings{tempdir}/rep$i";
-    mkdir $subTempdir;
-
-    my $distances=mashDistance($sketches[$i],$subTempdir,$settings);
-
-    my $phylip = distancesToPhylip($distances,$subTempdir,$settings);
-
-    my $treeObj = createTree($phylip,$subTempdir,$settings);
-
-    push(@trees,$treeObj);
-  }
-
-
-  # Make bootstraps but move the ID to the bootstrap field for
-  # compatibility with Newick and tree drawing programs like MEGA.
-  # TODO: move this to a subroutine to keep main() clean.
-  my $guideTree=shift(@trees);
-  my $stat=Bio::Tree::Statistics->new;
-  my $bs_tree=$stat->assess_bootstrap(\@trees,$guideTree);
-  for my $node(grep { ! $_->is_Leaf } $bs_tree->get_nodes){
-    my $id=$node->bootstrap || 0;
-    $node->id($id);
-  }
-
-  print $bs_tree->as_text('newick');
+  print $treeObj->as_text('newick');
   print "\n";
   
   return 0;
@@ -349,8 +315,8 @@ sub usage{
                             genome name is found
 
   MASH SKETCH OPTIONS
-  --genomesize   5000000
-  --mindepth     2     
-  --kmerlength   21
+  --genomesize         5000000
+  --mindepth           5     
+  --kmerlength         21
   "
 }
