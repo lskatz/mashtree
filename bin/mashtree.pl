@@ -306,7 +306,7 @@ sub usage{
   "$0: use distances from Mash (min-hash algorithm) to make a NJ tree
   Usage: $0 *.fastq.gz *.fasta > tree.dnd
   NOTE: fasta files are read as assembly files; fastq files
-        are read as raw reads
+        are read as raw reads. Fastq file can be gzipped.
   --tempdir                 If not specified, one will be made for you
                             and then deleted at the end of this script.
   --numcpus            1    This script uses Perl threads.
