@@ -37,6 +37,10 @@ sub main{
   GetOptions($settings,@wrapperOptions,@mashOptions) or die $!;
   $$settings{numcpus}||=1;
   $$settings{reps}||=0;
+  $$settings{kmerlength}||=21;
+  $$settings{genomesize}||=5000000;
+  $$settings{mindepth}||=10;
+  $$settings{truncLength}||=250;
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
   mkdir($$settings{tempdir}) if(!-d $$settings{tempdir});
 
@@ -64,9 +68,10 @@ sub main{
     $mashtreexopts.="--$option $value " if($$settings{$option});
   }
 
-  system("$FindBin::RealBin/mashtree.pl --tempdir $$settings{tempdir} $mashtreexopts @reads > $$settings{tempdir}/tree.dnd");
+  my $observeddir="$$settings{tempdir}/observed";
+  mkdir($observeddir);
+  system("$FindBin::RealBin/mashtree.pl --tempdir $observeddir $mashtreexopts @reads > $observeddir/tree.dnd.tmp && mv $observeddir/tree.dnd.tmp $observeddir/tree.dnd");
   die if $?;
-  my $guideTree=Bio::TreeIO->new(-file=>"$$settings{tempdir}/tree.dnd")->next_tree;
 
   my @bsTree;
   for(my $i=1;$i<=$$settings{reps}; $i++){
@@ -87,6 +92,7 @@ sub main{
   # Combine trees into a bootstrapped tree and write it 
   # to an output file. Then print it to stdout.
   my $biostat=Bio::Tree::Statistics->new;
+  my $guideTree=Bio::TreeIO->new(-file=>"$observeddir/tree.dnd")->next_tree;
   my $bsTree=$biostat->assess_bootstrap(\@bsTree,$guideTree);
   for my $node($bsTree->get_nodes){
     next if($node->is_Leaf);
@@ -157,6 +163,7 @@ sub subsampleAssembly{
   my $seqin=Bio::SeqIO->new(-file=>$infile);
   my $seqout=Bio::SeqIO->new(-file=>">$outfile");
   while(my $seq=$seqin->next_seq){
+    next if($seq->length < $$settings{kmerlength}*2); # don't bother with short contigs
 
     # Sample 50% of the contig
     my $randStart=int(rand($seq->length));
@@ -196,9 +203,9 @@ sub printRandomReadsToFile{
     }
   }
   print $outFh $fastqCache; # clear out the rest of the cache
-  logmsg "Finished writing $numEntries records to $outfile";
   close $outFh;
   close $fh;
+  logmsg "Finished writing $numEntries records to $outfile";
 
   if($$settings{'save-space'}){
     die "TODO";
@@ -263,7 +270,7 @@ sub usage{
                             where possible
   MASH SKETCH OPTIONS
   --genomesize         5000000
-  --mindepth           5     
+  --mindepth           10
   --kmerlength         21
   "
 }
