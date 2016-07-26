@@ -29,16 +29,16 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth=i truncLength=i warn-on-duplicate kmerlength=i)) or die $!;
+  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth=i truncLength=i kmerlength=i)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
-  $$settings{kmerlength}||=21;
   logmsg "Temporary directory will be $$settings{tempdir}";
 
   # Mash-specific options
   $$settings{genomesize}||=5000000;
   $$settings{mindepth}||=5;
+  $$settings{kmerlength}||=21;
 
   die usage() if($$settings{help});
 
@@ -311,8 +311,6 @@ sub usage{
                             and then deleted at the end of this script.
   --numcpus            1    This script uses Perl threads.
   --truncLength        250  How many characters to keep in a filename
-  --warn-on-duplicate       Warn instead of die when a duplicate
-                            genome name is found
 
   MASH SKETCH OPTIONS
   --genomesize         5000000
