@@ -1,12 +1,16 @@
 # mashtree
 Create a tree using Mash distances
 
+For simple usage, see `mashtree.pl`.  For advanced options, look at `mashtree_wrapper.pl`.
+
 ## Examples
 
-    mashtree.pl *.fastq.gz > tree.dnd
-    mashtree.pl *.fasta    > tree.dnd
-    mashtree.pl *.fastq.gz *.fasta > tree.dnd
-    mashtree.pl --reps 100 --numcpus 12 --validate-reads *.fastq.gz > tree.dnd
+    mashtree.pl --numcpus 12 *.fastq.gz [*.fasta] > mashtree.dnd
+
+### Advanced
+
+    mashtree_wrapper.pl --reps 100 --numcpus 12 --validate-reads *.fastq.gz > mashtree.dnd
+
 
 ## Usage
 
@@ -18,20 +22,15 @@ Create a tree using Mash distances
                                 and then deleted at the end of this script.
       --numcpus            1    This script uses Perl threads.
       --truncLength        250  How many characters to keep in a filename
-      --warn-on-duplicate       Warn instead of die when a duplicate
-                                genome name is found
-      --reps               0    How many bootstrap repetitions to run;
-                                If zero, no bootstrapping.
-      --validate-reads          Do you want to see if your reads will work
-                                with mashtree.pl?
-                                Currently checks number of reads and
-                                uniqueness of filename.
       --save-space              Save space in the temporary directory
                                 where possible
 
       MASH SKETCH OPTIONS
       --genomesize   5000000
       --mindepth     2
+
+Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
+`--help` for additional information.
 
 ## Requirements
 
