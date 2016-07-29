@@ -1,5 +1,5 @@
 # mashtree
-Create a tree using Mash distances. For an overview of Mash, please see http://mash.readthedocs.io
+Create a tree using Mash distances.
 
 For simple usage, see `mashtree.pl`.  For advanced options, look at `mashtree_wrapper.pl`.
 
@@ -35,4 +35,9 @@ Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 ## Requirements
 
 * Mash >= v1.1
-* Perl with multithreading
+* Perl with multithreading and with the BioPerl library
+
+## References
+
+*  Mash: http://mash.readthedocs.io
+*  BioPerl: http://bioperl.org
