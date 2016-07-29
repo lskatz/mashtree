@@ -1,5 +1,5 @@
 # mashtree
-Create a tree using Mash distances
+Create a tree using Mash distances. For an overview of Mash, please see http://mash.readthedocs.io
 
 For simple usage, see `mashtree.pl`.  For advanced options, look at `mashtree_wrapper.pl`.
 
