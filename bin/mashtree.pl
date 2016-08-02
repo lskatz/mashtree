@@ -28,7 +28,7 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth=i truncLength=i kmerlength=i sort-order=s)) or die $!;
+  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth=i truncLength=i kmerlength=i sort-order=s sketch-size=i)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -39,6 +39,7 @@ sub main{
   $$settings{genomesize}||=5000000;
   $$settings{mindepth}||=5;
   $$settings{kmerlength}||=21;
+  $$settings{'sketch-size'}||=10000;
 
   # Make some settings lowercase
   for(qw(sort-order)){
@@ -131,7 +132,7 @@ sub mashSketch{
     } elsif(-s $fastq < 1){
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
     } else {
-      system("mash sketch -k $$settings{kmerlength} -s 10000 $sketchXopts -o $outPrefix $fastq > /dev/null 2>&1");
+      system("mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq > /dev/null 2>&1");
       die if $?;
     }
 
@@ -215,6 +216,7 @@ sub usage{
   --genomesize         5000000
   --mindepth           5     
   --kmerlength         21
+  --sketch-size        10000
   "
 }
 

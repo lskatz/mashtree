@@ -33,12 +33,13 @@ exit main();
 sub main{
   my $settings={};
   my @wrapperOptions=qw(help outmatrix=s distance-matrix tempdir=s numcpus=i save-space reps=i);
-  my @mashOptions=qw(kmerlength=i truncLength=i genomesize=i mindepth=i warn-on-duplicate);
+  my @mashOptions=qw(kmerlength=i truncLength=i genomesize=i mindepth=i warn-on-duplicate sketch-size=i);
   GetOptions($settings,@wrapperOptions,@mashOptions) or die $!;
   $$settings{numcpus}||=1;
   $$settings{reps}||=0;
   $$settings{kmerlength}||=21;
   $$settings{genomesize}||=5000000;
+  $$settings{'sketch-size'}||=10000;
   $$settings{mindepth}||=10;
   $$settings{truncLength}||=250;
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -162,6 +163,7 @@ sub usage{
   --genomesize         5000000
   --mindepth           10
   --kmerlength         21
+  --sketch-size        10000
   "
 }
 
