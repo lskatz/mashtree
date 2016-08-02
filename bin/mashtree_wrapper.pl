@@ -10,6 +10,7 @@ use Getopt::Long;
 use File::Temp qw/tempdir tempfile/;
 use File::Basename qw/basename dirname fileparse/;
 use File::Copy qw/cp mv/;
+use List::Util qw/shuffle/;
 
 use threads;
 use Thread::Queue;
@@ -17,7 +18,7 @@ use threads::shared;
 
 use FindBin;
 use lib "$FindBin::RealBin/../lib/perl5";
-use Mashtree qw/logmsg @fastqExt @fastaExt/;
+use Mashtree qw/logmsg @fastqExt @fastaExt createTreeFromPhylip/;
 use Bio::SeqIO;
 use Bio::TreeIO;
 use Bio::Tree::DistanceFactory;
@@ -25,7 +26,6 @@ use Bio::Tree::Statistics;
 use Bio::Matrix::IO;
 
 local $0=basename $0;
-my $fhStick :shared;  # A thread can only open a fastq file if it has the talking stick.
 my $writeStick :shared;  # Only one thread can write at a time
 
 exit main();
@@ -67,30 +67,53 @@ sub main{
     }
     $mashtreexopts.="--$option $value " if($$settings{$option});
   }
-
+  
+  # Some filenames we'll expect
   my $observeddir="$$settings{tempdir}/observed";
+  my $obsDistances="$observeddir/distances.phylip";
+  my $observedTree="$observeddir/tree.dnd";
+
+  # Make the observed directory and run Mash
   mkdir($observeddir);
-  system("$FindBin::RealBin/mashtree.pl --tempdir $observeddir $mashtreexopts @reads > $observeddir/tree.dnd.tmp && mv $observeddir/tree.dnd.tmp $observeddir/tree.dnd");
+  system("$FindBin::RealBin/mashtree.pl --tempdir $observeddir $mashtreexopts @reads > $observedTree.tmp && mv $observedTree.tmp $observedTree");
   die if $?;
 
+  # Read the distance matrix file for shuffling in the bootstrap step.
+  my $matrixObj=Bio::Matrix::IO->new(-format=>"phylip", -file=>$obsDistances)->next_matrix;
+
+  logmsg "Running $$settings{reps} replicates";
   my @bsTree;
   for(my $i=1;$i<=$$settings{reps}; $i++){
+    # While we are running replicates, if the user enters ctrl-C,
+    # Mashtree will simply stop running replicates and will
+    # move onto the bootstrapped tree.
+    local $SIG{INT}=sub{$$settings{reps}=$i; logmsg "Caught ^C. Only ran $i reps."; return 0;};
+
     my $tempdir="$$settings{tempdir}/rep$i";
     mkdir($tempdir);
-    logmsg "Made replicate directory $tempdir";
-    next if(-e "$tempdir/tree.dnd");
+    if($i % 100 == 0){
+      logmsg "Mashtree replicate $i - $tempdir";
+    }
 
-    # 1. Downsample/subsample
-    my $reads=subsampleAll(\@reads,$tempdir,$settings);
-    # 2. Run Mashtree on Subsampled
-    system("$FindBin::RealBin/mashtree.pl --tempdir $tempdir $mashtreexopts @$reads > $tempdir/tree.dnd.tmp && mv $tempdir/tree.dnd.tmp $tempdir/tree.dnd");
-    die if $?;
+    if(!-e "$tempdir/tree.dnd"){
+      # Test the neighbor-joining algorithm by shuffling the input order
+      # Make a new shuffled matrix
+      my $shuffledMatrixObj=$matrixObj;
+      @{$shuffledMatrixObj->{_names}} = shuffle(@{$shuffledMatrixObj->{_names}});
+      my $matrixOut=Bio::Matrix::IO->new(-format=>'phylip',-file=>">$tempdir/distances.phylip");
+      $matrixOut->write_matrix($shuffledMatrixObj);
+      $matrixOut->close; # need to flush the buffer to the file for the next step to work
+      
+      # Make a tree from the shuffled matrix
+      createTreeFromPhylip("$tempdir/distances.phylip",$tempdir,$settings);
+    }
 
     push(@bsTree,Bio::TreeIO->new(-file=>"$tempdir/tree.dnd")->next_tree);
   }
   
   # Combine trees into a bootstrapped tree and write it 
   # to an output file. Then print it to stdout.
+  logmsg "Adding bootstraps to tree";
   my $biostat=Bio::Tree::Statistics->new;
   my $guideTree=Bio::TreeIO->new(-file=>"$observeddir/tree.dnd")->next_tree;
   my $bsTree=$biostat->assess_bootstrap(\@bsTree,$guideTree);
@@ -117,135 +140,6 @@ sub main{
 # Utils
 #######
 
-sub subsampleAll{
-  my($reads,$tempdir,$settings)=@_;
-  
-  my $readsQ=Thread::Queue->new(@$reads);
-  $readsQ->enqueue((undef) x $$settings{numcpus});
-  my @thr;
-  for(0..$$settings{numcpus}-1){
-    $thr[$_]=threads->new(\&subsample, $tempdir, $readsQ, $settings);
-  }
-
-  my @outfile;
-  for(@thr){
-    my $outfile=$_->join;
-    push(@outfile,@$outfile);
-  }
-  return \@outfile;
-}
-
-sub subsample{
-  my($tempdir,$Q,$settings)=@_;
-  # Subsample if it's an assembly.
-  # Downsample if it's reads.
-  my @outfile;
-  while(defined(my $read=$Q->dequeue)){
-    my($name,$dir,$ext)=fileparse($read,@fastqExt,@fastaExt);
-    my $outfile;
-    if(grep(/\Q$ext\E/,@fastqExt)){
-      $outfile="$tempdir/$name.fastq";
-      printRandomReadsToFile($read,$outfile,$settings);
-    } elsif (grep(/\Q$ext\E/,@fastaExt)){
-      $outfile="$tempdir/$name.fasta";
-      subsampleAssembly($read,$outfile,$settings);
-    } else {
-      die "ERROR: I do not understand extension $ext";
-    }
-    push(@outfile,$outfile);
-  }
-  return \@outfile;
-}
-
-sub subsampleAssembly{
-  my($infile,$outfile,$settings)=@_;
-
-  my $seqin=Bio::SeqIO->new(-file=>$infile);
-  my $seqout=Bio::SeqIO->new(-file=>">$outfile");
-  while(my $seq=$seqin->next_seq){
-    next if($seq->length < $$settings{kmerlength}*2); # don't bother with short contigs
-
-    # Sample 50% of the contig
-    my $randStart=int(rand($seq->length));
-    my $sublength=$seq->length/2; 
-    my $subsequence=substr($seq->seq,$randStart-1,$sublength);
-    if($sublength > length($subsequence)){
-      $subsequence.=substr($seq->seq,0,($sublength - length($subsequence)));
-    }
-
-    my $subseq=Bio::Seq->new(-id=>$seq->id,-seq=>$subsequence);
-    $seqout->write_seq($subseq);
-  }
-}
-
-sub printRandomReadsToFile{
-  my($infile,$outfile,$settings)=@_;
-
-  logmsg "Downsampling $infile";
-
-  return 0 if(-e $outfile);
-
-  my $numEntries=0;
-  my $fastqCache="";
-  open(my $outFh,">","$outfile.tmp") or die "ERROR: could not open $outfile.tmp for writing: $!";
-  my $fh=openFastq($infile,$settings);
-  while(my $entry=<$fh> . <$fh> . <$fh> . <$fh>){
-    next if(rand() < 0.5);
-
-    $fastqCache.=$entry;
-    ++$numEntries;
-
-    if($numEntries % 1000000 == 0){
-      lock($writeStick);
-      print $outFh $fastqCache;
-      $fastqCache="";
-      logmsg "Wrote $numEntries records to $outfile";
-    }
-  }
-  print $outFh $fastqCache; # clear out the rest of the cache
-  close $outFh;
-  close $fh;
-  logmsg "Finished writing $numEntries records to $outfile";
-
-  if($$settings{'save-space'}){
-    die "TODO";
-    system("gzip $outfile.tmp && mv $outfile.tmp.gz $outfile.gz");
-    die if $?;
-  } else {
-    mv("$outfile.tmp",$outfile);
-  }
-
-  return $numEntries;
-}
-
-# Removes fastq extension, removes directory name,
-# truncates to a length, and adds right-padding.
-sub _truncateFilename{
-  my($file,$settings)=@_;
-  my $name=basename($file,@fastqExt);
-  $name=substr($name,0,$$settings{truncLength}); 
-  $name.=" " x ($$settings{truncLength}-length($name)); 
-  return $name;
-}
-
-# Opens a fastq file in a thread-safe way.
-sub openFastq{
-  my($fastq,$settings)=@_;
-
-  my $fh;
-
-  lock($fhStick);
-
-  my @fastqExt=qw(.fastq.gz .fastq .fq.gz .fq);
-  my($name,$dir,$ext)=fileparse($fastq,@fastqExt);
-  if($ext =~/\.gz$/){
-    open($fh,"zcat $fastq | ") or die "ERROR: could not open $fastq for reading!: $!";
-  } else {
-    open($fh,"<",$fastq) or die "ERROR: could not open $fastq for reading!: $!";
-  }
-  return $fh;
-}
-
 sub usage{
   "$0: use distances from Mash (min-hash algorithm) to make a NJ tree
   Usage: $0 *.fastq.gz *.fasta > tree.dnd
@@ -262,10 +156,6 @@ sub usage{
   --distance-matrix    ''   Output file for distance matrix
   --reps               0    How many bootstrap repetitions to run;
                             If zero, no bootstrapping.
-  --validate-reads          Do you want to see if your reads will work
-                            with $0?
-                            Currently checks number of reads and
-                            uniqueness of filename.
   --save-space              Save space in the temporary directory
                             where possible
   MASH SKETCH OPTIONS
@@ -274,3 +164,4 @@ sub usage{
   --kmerlength         21
   "
 }
+

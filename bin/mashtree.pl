@@ -17,28 +17,33 @@ use threads::shared;
 
 use FindBin;
 use lib "$FindBin::RealBin/../lib/perl5";
-use Mashtree qw/logmsg @fastqExt @fastaExt/;
+use Mashtree qw/logmsg @fastqExt @fastaExt _truncateFilename distancesToPhylip createTreeFromPhylip/;
 use Bio::Tree::DistanceFactory;
 use Bio::Matrix::IO;
 use Bio::Tree::Statistics;
 
 local $0=basename $0;
-my $fhStick :shared;  # A thread can only open a fastq file if it has the talking stick.
 
 exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth=i truncLength=i kmerlength=i)) or die $!;
+  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth=i truncLength=i kmerlength=i sort-order=s)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
+  $$settings{'sort-order'}||="ABC";
   logmsg "Temporary directory will be $$settings{tempdir}";
 
   # Mash-specific options
   $$settings{genomesize}||=5000000;
   $$settings{mindepth}||=5;
   $$settings{kmerlength}||=21;
+
+  # Make some settings lowercase
+  for(qw(sort-order)){
+    $$settings{$_}=lc($$settings{$_});
+  }
 
   die usage() if($$settings{help});
 
@@ -60,7 +65,8 @@ sub main{
 
   my $phylip = distancesToPhylip($distances,$$settings{tempdir},$settings);
 
-  my $treeObj = createTree($phylip,$$settings{tempdir},$settings);
+  logmsg "Creating a NJ tree with BioPerl";
+  my $treeObj = createTreeFromPhylip($phylip,$$settings{tempdir},$settings);
 
   print $treeObj->as_text('newick');
   print "\n";
@@ -181,124 +187,12 @@ sub mashDist{
     my $outfile="$outdir/".basename($msh).".tsv";
     logmsg "Distances for $msh";
     system("mash dist -t $msh -l $mshList > $outfile");
-    die if $?;
+    die "ERROR with 'mash dist -t $msh -l $mshList'" if $?;
 
     push(@dist,$outfile);
   }
 
   return \@dist;
-}
-
-# 1. Read the mash distances
-# 2. Create a phylip file
-sub distancesToPhylip{
-  my($distances,$outdir,$settings)=@_;
-
-  my $phylip = "$outdir/distances.phylip"; 
-  return $phylip if(-e $phylip);
-
-  logmsg "Reading the distances file at $distances";
-  open(MASHDIST,"<",$distances) or die "ERROR: could not open $distances for reading: $!";
-
-  my $id="UNKNOWN"; # Default ID in case anything goes wrong
-  my %m; #matrix for distances
-  while(<MASHDIST>){
-    chomp;
-    if(/^#query\s+(.+)/){
-      $id=_truncateFilename($1,$settings);
-    } else {
-      my @F=split(/\t/,$_);
-      $F[0]=_truncateFilename($F[0],$settings);
-      $m{$id}{$F[0]}=sprintf("%0.6f",$F[1]);
-    }
-  }
-  close MASHDIST;
-
-  # Create the phylip file.
-  # Make the text first so that we can edit it a bit.
-  # TODO I should probably make the matrix the bioperl way.
-  logmsg "Creating the distance matrix file for fneighbor.";
-  my %seenTruncName;
-  my $phylipText="";
-  my @genome=sort{$a cmp $b} keys(%m);
-  for(my $i=0;$i<@genome;$i++){ 
-    my $name=_truncateFilename($genome[$i],$settings);
-    $phylipText.="$name  "; 
-    if($seenTruncName{$name}++){
-      
-    }
-    for(my $j=0;$j<@genome;$j++){
-      $phylipText.=$m{$genome[$i]}{$genome[$j]}."  ";
-    }
-    $phylipText.= "\n";
-  }
-  $phylipText=~s/  $//gm;
-
-  # Make the phylip file.
-  open(PHYLIP,">",$phylip) or die "ERROR: could not open $phylip for writing: $!";
-  print PHYLIP "    ".scalar(@genome)."\n";
-  print PHYLIP $phylipText;
-  close PHYLIP;
-
-  return $phylip;
-}
-
-# Create tree file with BioPerl
-sub createTree{
-  my($phylip,$outdir,$settings)=@_;
-
-  logmsg "Creating a NJ tree with BioPerl";
-  my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
-  my $matrix   = Bio::Matrix::IO->new(-format=>"phylip", -file=>$phylip)->next_matrix;
-  my $treeObj = $dfactory->make_tree($matrix);
-  open(TREE,">","$outdir/tree.dnd") or die "ERROR: could not open $outdir/tree.dnd: $!";
-  print TREE $treeObj->as_text("newick");
-  print TREE "\n";
-  close TREE;
-
-  return $treeObj;
-
-}
-
-#######
-# Utils
-#######
-
-# Removes fastq extension, removes directory name,
-# truncates to a length, and adds right-padding.
-sub _truncateFilename{
-  my($file,$settings)=@_;
-  my $name=basename($file,@fastqExt);
-  $name=substr($name,0,$$settings{truncLength}); 
-  $name.=" " x ($$settings{truncLength}-length($name)); 
-  return $name;
-}
-
-# Opens a fastq file in a thread-safe way.
-sub openFastq{
-  my($fastq,$settings)=@_;
-
-  my $fh;
-
-  lock($fhStick);
-
-  my @fastqExt=qw(.fastq.gz .fastq .fq.gz .fq);
-  my($name,$dir,$ext)=fileparse($fastq,@fastqExt);
-  if($ext =~/\.gz$/){
-    open($fh,"zcat $fastq | ") or die "ERROR: could not open $fastq for reading!: $!";
-  } else {
-    open($fh,"<",$fastq) or die "ERROR: could not open $fastq for reading!: $!";
-  }
-  return $fh;
-}
-
-# Lifted from List::MoreUtils
-sub uniq (@)
-{
-    my %seen = ();
-    my $k;
-    my $seen_undef;
-    grep { defined $_ ? not $seen{ $k = $_ }++ : not $seen_undef++ } @_;
 }
 
 
@@ -310,7 +204,12 @@ sub usage{
   --tempdir                 If not specified, one will be made for you
                             and then deleted at the end of this script.
   --numcpus            1    This script uses Perl threads.
+
+  TREE OPTIONS
   --truncLength        250  How many characters to keep in a filename
+  --sort-order         ABC  For neighbor-joining, the sort order can
+                            make a difference. Options include:
+                            ABC (alphabetical), random, input-order
 
   MASH SKETCH OPTIONS
   --genomesize         5000000
@@ -318,3 +217,4 @@ sub usage{
   --kmerlength         21
   "
 }
+
