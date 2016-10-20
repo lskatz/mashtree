@@ -37,7 +37,7 @@ sub main{
 
   # Mash-specific options
   $$settings{genomesize}||=5000000;
-  $$settings{mindepth}||=5;
+  $$settings{mindepth}||=0;
   $$settings{kmerlength}||=21;
   $$settings{'sketch-size'}||=10000;
 
@@ -111,7 +111,8 @@ sub mashSketch{
     # Do different things depending on fastq vs fasta
     my $sketchXopts="";
     if(grep {$_ eq $fileExt} @fastqExt){
-      $sketchXopts.="-m $$settings{mindepth} -g $$settings{genomesize} ";
+      my $minDepth=determineMinimumDepth($fastq,$$settings{mindepth},$$settings{kmerlength},$settings);
+      $sketchXopts.="-m $minDepth -g $$settings{genomesize} ";
     } elsif(grep {$_ eq $fileExt} @fastaExt) {
       $sketchXopts.=" ";
     } else {
@@ -196,6 +197,26 @@ sub mashDist{
   return \@dist;
 }
 
+sub determineMinimumDepth{
+  my($fastq,$mindepth,$kmerlength,$settings)=@_;
+
+  return $mindepth if($mindepth > 0);
+
+  my $basename=basename($fastq,@fastqExt);
+  
+  # Run the min abundance finder to find the valleys
+  my $histFile="$$settings{tempdir}/$basename.hist.tsv";
+  my @valley=`min_abundance_finder.pl $fastq --kmer $kmerlength --valleys --nopeaks --hist $histFile`;
+  die "ERROR with min_abundance_finder.pl on $fastq: $!" if($?);
+  chomp(@valley);
+  
+  # Discard the header but keep the first line
+  my($minKmerCount, $countOfCounts)=split(/\t/,$valley[1]);
+
+  logmsg "Setting the min depth as $minKmerCount for $fastq";
+
+  return $minKmerCount;
+}
 
 sub usage{
   "$0: use distances from Mash (min-hash algorithm) to make a NJ tree
@@ -214,7 +235,9 @@ sub usage{
 
   MASH SKETCH OPTIONS
   --genomesize         5000000
-  --mindepth           5     
+  --mindepth           0    If mindepth is zero, then it will be
+                            chosen in a smart but slower method,
+                            to discard lower-abundance kmers.
   --kmerlength         21
   --sketch-size        10000
   "
