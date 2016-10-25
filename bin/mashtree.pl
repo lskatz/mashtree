@@ -212,6 +212,7 @@ sub determineMinimumDepth{
   
   # Discard the header but keep the first line
   my($minKmerCount, $countOfCounts)=split(/\t/,$valley[1]);
+  $minKmerCount=0 if(!defined($minKmerCount) || $minKmerCount < 1);
 
   logmsg "Setting the min depth as $minKmerCount for $fastq";
 
