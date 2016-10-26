@@ -68,6 +68,7 @@ sub main{
 
   logmsg "Running $$settings{reps} replicates";
   my @bsTree;
+  # TODO: multithread
   for(my $i=1;$i<=$$settings{reps}; $i++){
     # While we are running replicates, if the user enters ctrl-C,
     # Mashtree will simply stop running replicates and will
@@ -80,18 +81,16 @@ sub main{
       logmsg "Mashtree replicate $i - $tempdir";
     }
 
-    if(!-e "$tempdir/tree.dnd"){
-      # Test the neighbor-joining algorithm by shuffling the input order
-      # Make a new shuffled matrix
-      my $shuffledMatrixObj=$matrixObj;
-      @{$shuffledMatrixObj->{_names}} = shuffle(@{$shuffledMatrixObj->{_names}});
-      my $matrixOut=Bio::Matrix::IO->new(-format=>'phylip',-file=>">$tempdir/distances.phylip");
-      $matrixOut->write_matrix($shuffledMatrixObj);
-      $matrixOut->close; # need to flush the buffer to the file for the next step to work
-      
-      # Make a tree from the shuffled matrix
-      createTreeFromPhylip("$tempdir/distances.phylip",$tempdir,$settings);
-    }
+    # Test the neighbor-joining algorithm by shuffling the input order
+    # Make a new shuffled matrix
+    my $shuffledMatrixObj=$matrixObj;
+    @{$shuffledMatrixObj->{_names}} = shuffle(@{$shuffledMatrixObj->{_names}});
+    my $matrixOut=Bio::Matrix::IO->new(-format=>'phylip',-file=>">$tempdir/distances.phylip");
+    $matrixOut->write_matrix($shuffledMatrixObj);
+    $matrixOut->close; # need to flush the buffer to the file for the next step to work
+    
+    # Make a tree from the shuffled matrix
+    createTreeFromPhylip("$tempdir/distances.phylip",$tempdir,$settings);
 
     push(@bsTree,Bio::TreeIO->new(-file=>"$tempdir/tree.dnd")->next_tree);
   }
