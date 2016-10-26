@@ -32,42 +32,26 @@ exit main();
 
 sub main{
   my $settings={};
-  my @wrapperOptions=qw(help outmatrix=s distance-matrix tempdir=s numcpus=i save-space reps=i);
-  my @mashOptions=qw(kmerlength=i truncLength=i genomesize=i mindepth=i warn-on-duplicate sketch-size=i);
-  GetOptions($settings,@wrapperOptions,@mashOptions) or die $!;
-  $$settings{numcpus}||=1;
+  my @wrapperOptions=qw(help distance-matrix tempdir=s reps=i);
+  #my @mashOptions=qw(kmerlength=i truncLength=i genomesize=i mindepth=i warn-on-duplicate sketch-size=i);
+  GetOptions($settings,@wrapperOptions) or die $!;
   $$settings{reps}||=0;
-  $$settings{kmerlength}||=21;
-  $$settings{genomesize}||=5000000;
-  $$settings{'sketch-size'}||=10000;
-  $$settings{mindepth}||=10;
-  $$settings{truncLength}||=250;
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
   mkdir($$settings{tempdir}) if(!-d $$settings{tempdir});
 
   logmsg "Temporary directory will be $$settings{tempdir}";
 
   die usage() if($$settings{help});
-
-  # "reads" are either fasta assemblies or fastq reads
-  my @reads=@ARGV;
-  die usage() if(@reads < 2);
+  die usage() if(@ARGV < 1);
   
-  # Figure out options for mashtree.pl
-  my $mashtreexopts="--numcpus $$settings{numcpus} ";
-  for my $getopt(@mashOptions){
-    my $option=$getopt;
-    $option=~s/=.+$//; # remove equals sign and after
-
-    # Treat boolean and options with values differently.
-    # If the option never had equals sign in it, it's boolean
-    # and the value should be stripped.
-    my $value=$$settings{$option};
-    if($getopt eq $option){
-      $value="";
-    }
-    $mashtreexopts.="--$option $value " if($$settings{$option});
+  ## Catch some options that are not allowed to be passed
+  # Tempdir: All mashtree.pl temporary directories will be under the
+  # wrapper's tempdir.
+  if(grep(/^\-+tempdir$/,@ARGV) || grep(/^\-+t$/,@ARGV)){
+    die "ERROR: tempdir was specified for mashtree.pl";
   }
+
+  my $mashOptions=join(" ",@ARGV);
   
   # Some filenames we'll expect
   my $observeddir="$$settings{tempdir}/observed";
@@ -76,7 +60,7 @@ sub main{
 
   # Make the observed directory and run Mash
   mkdir($observeddir);
-  system("$FindBin::RealBin/mashtree.pl --tempdir $observeddir $mashtreexopts @reads > $observedTree.tmp && mv $observedTree.tmp $observedTree");
+  system("$FindBin::RealBin/mashtree.pl --tempdir $observeddir $mashOptions > $observedTree.tmp && mv $observedTree.tmp $observedTree");
   die if $?;
 
   # Read the distance matrix file for shuffling in the bootstrap step.
@@ -142,28 +126,15 @@ sub main{
 #######
 
 sub usage{
-  "$0: use distances from Mash (min-hash algorithm) to make a NJ tree
-  Usage: $0 *.fastq.gz *.fasta > tree.dnd
-  NOTE: fasta files are read as assembly files; fastq files
-        are read as raw reads. Fastq file can be gzipped.
-  MASH TREE OPTIONS
-  --tempdir                 If not specified, one will be made for you
-                            and then deleted at the end of this script.
-  --numcpus            1    This script uses Perl threads.
-  --truncLength        250  How many characters to keep in a filename
-  --warn-on-duplicate       Warn instead of die when a duplicate
-                            genome name is found
-  MISC OPTIONS
+  my $usage="$0: a wrapper around mashtree.pl.
+  Usage: $0 [options] -- [mashtree.pl options] *.fastq.gz *.fasta > tree.dnd
   --distance-matrix    ''   Output file for distance matrix
   --reps               0    How many bootstrap repetitions to run;
                             If zero, no bootstrapping.
-  --save-space              Save space in the temporary directory
-                            where possible
-  MASH SKETCH OPTIONS
-  --genomesize         5000000
-  --mindepth           10
-  --kmerlength         21
-  --sketch-size        10000
-  "
+  
+  MASHTREE.PL OPTIONS:\n".
+  `mashtree.pl --help 2>&1 | grep -A 999 numcpus | grep -v ^Stopped`;
+
+  return $usage;
 }
 
