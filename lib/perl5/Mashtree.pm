@@ -15,6 +15,7 @@ use Bio::Matrix::IO;
 our @EXPORT_OK = qw(
            logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip
            @fastqExt @fastaExt @bamExt @vcfExt @richseqExt
+           $MASHTREE_VERSION
          );
 
 local $0=basename $0;
@@ -22,6 +23,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
+our $MASHTREE_VERSION="0.06";
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fa);
 our @bamExt=qw(.sorted.bam .bam);
