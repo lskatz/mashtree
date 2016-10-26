@@ -9,25 +9,33 @@ For simple usage, see `mashtree.pl`.  For advanced options, look at `mashtree_wr
 
 ### Advanced
 
-    mashtree_wrapper.pl --reps 100 --numcpus 12 --validate-reads *.fastq.gz > mashtree.dnd
+    mashtree_wrapper.pl --reps 100 -- --numcpus 12 *.fastq.gz > mashtree.dnd
 
 
 ## Usage
 
-    mashtree.pl: use distances from Mash (min-hash algorithm) to make a NJ tree.
-    Input files can be fastq or fasta.  Fastq files are assumed to be reads
-    while fasta will be assumed to be assemblies.
-      Usage: mashtree.pl *.fastq.gz > tree.dnd
+    mashtree.pl: use distances from Mash (min-hash algorithm) to make a NJ tree
+      Usage: mashtree.pl *.fastq.gz *.fasta > tree.dnd
+      NOTE: fasta files are read as assembly files; fastq files
+            are read as raw reads. Fastq file can be gzipped.
       --tempdir                 If not specified, one will be made for you
                                 and then deleted at the end of this script.
       --numcpus            1    This script uses Perl threads.
+
+      TREE OPTIONS
       --truncLength        250  How many characters to keep in a filename
-      --save-space              Save space in the temporary directory
-                                where possible
+      --sort-order         ABC  For neighbor-joining, the sort order can
+                                make a difference. Options include:
+                                ABC (alphabetical), random, input-order
 
       MASH SKETCH OPTIONS
-      --genomesize   5000000
-      --mindepth     2
+      --genomesize         5000000
+      --mindepth           0    If mindepth is zero, then it will be
+                                chosen in a smart but slower method,
+                                to discard lower-abundance kmers.
+      --kmerlength         21
+      --sketch-size        10000
+
 
 Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 `--help` for additional information.
