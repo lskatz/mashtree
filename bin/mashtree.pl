@@ -17,7 +17,7 @@ use threads::shared;
 
 use FindBin;
 use lib "$FindBin::RealBin/../lib/perl5";
-use Mashtree qw/logmsg @fastqExt @fastaExt _truncateFilename distancesToPhylip createTreeFromPhylip/;
+use Mashtree qw/logmsg @fastqExt @fastaExt _truncateFilename distancesToPhylip createTreeFromPhylip $MASHTREE_VERSION/;
 use Bio::Tree::DistanceFactory;
 use Bio::Matrix::IO;
 use Bio::Tree::Statistics;
@@ -33,7 +33,6 @@ sub main{
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
   $$settings{'sort-order'}||="ABC";
-  logmsg "Temporary directory will be $$settings{tempdir}";
 
   # Mash-specific options
   $$settings{genomesize}||=5000000;
@@ -58,6 +57,7 @@ sub main{
     die "ERROR: could not find $exe in your PATH" if $?;
   }
 
+  logmsg "Temporary directory will be $$settings{tempdir}";
   logmsg "$0 on ".scalar(@reads)." files";
 
   my $sketches=sketchAll(\@reads,"$$settings{tempdir}",$settings);
@@ -241,6 +241,8 @@ sub usage{
                             to discard lower-abundance kmers.
   --kmerlength         21
   --sketch-size        10000
+
+  Mashtree version $MASHTREE_VERSION
   "
 }
 
