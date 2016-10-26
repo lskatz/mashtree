@@ -94,7 +94,9 @@ sub distancesToPhylip{
   my($distances,$outdir,$settings)=@_;
 
   my $phylip = "$outdir/distances.phylip"; 
-  return $phylip if(-e $phylip);
+  # NOTE: need to regenerate the combined distances each time
+  # because I need to allow variation in the input samples.
+  #return $phylip if(-e $phylip);
 
   # The way phylip is, I need to know the genome names
   # a priori
