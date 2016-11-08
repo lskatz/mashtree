@@ -12,8 +12,12 @@ use warnings;
 use Getopt::Long qw/GetOptions/;
 use Data::Dumper qw/Dumper/;
 use File::Basename qw/basename fileparse/;
+use File::Temp qw/tempdir/;
 use List::Util qw/max/;
 use IO::Uncompress::Gunzip qw/gunzip/;
+
+use threads;
+use Thread::Queue;
 
 # http://perldoc.perl.org/perlop.html#Symbolic-Unary-Operators
 # +Inf and -Inf will be a binary complement of all zeros
@@ -27,10 +31,13 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help kmerlength|kmer=i delta=i gt|greaterthan=i hist|histogram=s valleys! peaks!)) or die $!;
-  $$settings{kmerlength}||=21;
-  $$settings{delta}     ||=100;
-  $$settings{gt}        ||=0;
+  GetOptions($settings,qw(help kmerlength|kmer=i kmerCounter=s delta=i gt|greaterthan=i hist|histogram=s valleys! peaks! tempdir=s numcpus=i)) or die $!;
+  $$settings{kmerlength} ||=21;
+  $$settings{kmerCounter}||="";
+  $$settings{delta}      ||=100;
+  $$settings{gt}         ||=1;
+  $$settings{tempdir}    ||=tempdir(TEMPLATE=>"$0.XXXXXX",CLEANUP=>1,TMPDIR=>1);
+  $$settings{numcpus}    ||=1;
 
   $$settings{peaks}     //=0;
   $$settings{valleys}   //=1;
@@ -95,17 +102,106 @@ sub readHistogram{
   return \@hist;
 }
 
+# TODO: count kmers with faster programs in this order of
+# priority: jellyfish, KAnalyze, Khmer
+# and lastly, pure perl.
+
 sub countKmers{
   my($fastq,$kmerlength,$settings)=@_;
-  my %kmer=();
+
+  my $kmerHash={};
+
+  if($$settings{kmerCounter} =~ /^\s*$/){
+    logmsg "Auto-detecting which kmer counter program to use.";
+    if(which("jellyfish")){
+      $$settings{kmerCounter}="jellyfish";
+    } else {
+      $$settings{kmerCounter}="pureperl";
+    }
+  }
+
+  # try/catch kmer counting and if it fails, do the
+  # pure perl method.  Don't redo pure perl if
+  # it was already set up that way.
+  eval{
+    if($$settings{kmerCounter}=~ /(pure)?.*perl/i){
+      logmsg "Counting with pure perl";
+      $kmerHash=countKmersPurePerl($fastq,$kmerlength,$settings);
+    } elsif($$settings{kmerCounter} =~ /jellyfish/i){
+      logmsg "Counting with Jellyfish";
+      $kmerHash=countKmersJellyfish($fastq,$kmerlength,$settings);
+    } else {
+      die "ERROR: I do not understand the kmer counter $$settings{kmerCounter}";
+    }
+  };
+
+  if($@){
+    if($$settings{kmerCounter}=~ /(pure)?.*perl/i){
+      die "ERROR counting kmers with pure perl";
+    }
+    logmsg "Error detected.  Trying again by counting with pure perl";
+    $kmerHash=countKmersPurePerl($fastq,$kmerlength,$settings);
+  }
+
+  return $kmerHash;
+}
+
+sub countKmersPurePerl{
+  my($fastq,$kmerlength,$settings)=@_;
+
+  # Multithreading
+  my $seqQ=Thread::Queue->new;
+  my @thr;
+  for(0..$$settings{numcpus}-1){
+    $thr[$_]=threads->new(\&countKmersPurePerlWorker,$kmerlength,$seqQ,$settings);
+  }
 
   # Pure perl to make this standalone... the only reason
   # we are counting kmers in Perl instead of C.
   my $fastqFh=openFastq($fastq,$settings);
   my $i=0;
+  my @buffer=();
   while(<$fastqFh>){ # burn the read ID line
+    $i++;
     my $seq=<$fastqFh>;
-    chomp($seq);
+    push(@buffer, $seq);
+
+    if($i % 1000000 == 0){
+      logmsg "Enqueuing ".scalar(@buffer)." reads for kmer counting";
+      $seqQ->enqueue(@buffer);
+      @buffer=();
+    }
+    
+    # Burn the quality score lines
+    <$fastqFh>;
+    <$fastqFh>;
+  }
+  close $fastqFh;
+
+  logmsg "Enqueuing ".scalar(@buffer)." reads for kmer counting";
+  $seqQ->enqueue(@buffer);
+  logmsg $seqQ->pending . " reads still pending...";
+
+  # Send the termination signal
+  $seqQ->enqueue(undef) for(@thr);
+
+  my %kmer=();
+  for(@thr){
+    my $threadKmer=$_->join;
+    for my $kmer(keys(%$threadKmer)){
+      $kmer{$kmer}+=$$threadKmer{$kmer};
+    }
+  }
+
+  return \%kmer;
+}
+
+sub countKmersPurePerlWorker{
+  my($kmerlength,$seqQ,$settings)=@_; 
+
+  my %kmer;
+  while(defined(my $seq=$seqQ->dequeue)){
+
     my $numKmersInRead=length($seq)-$kmerlength+1;
 
     # Count kmers in a sliding window.
@@ -114,12 +210,63 @@ sub countKmers{
       $kmer{substr($seq,$j,$kmerlength)}++;
     }
 
-    # Burn the quality score lines
-    <$fastqFh>;
-    <$fastqFh>;
-
   }
-  close $fastqFh;
+
+  return \%kmer;
+}
+
+
+sub countKmersJellyfish{
+  my($fastq,$kmerlength,$settings)=@_;
+  my $basename=basename($fastq);
+  my %kmer=();
+
+  # Version checking
+  my $jfVersion=`jellyfish --version`;
+  # e.g., jellyfish 2.2.6
+  if($jfVersion =~ /(jellyfish\s+)?(\d+)?/){
+    my $majorVersion=$2;
+    if($majorVersion < 2){
+      die "ERROR: Jellyfish v2 or greater is required";
+    }
+  }
+  
+  my $outprefix="$$settings{tempdir}/$basename.mer_counts";
+  my $jfDb="$$settings{tempdir}/$basename.merged.jf";
+  my $kmerTsv="$$settings{tempdir}/$basename.jf.tsv";
+
+  # Counting
+  logmsg "Counting kmers in $fastq";
+  my $jellyfishCountOptions="-s 10000000 -m $kmerlength -o $outprefix -t $$settings{numcpus}";
+  my $uncompressedFastq="$$settings{tempdir}/$basename.fastq";
+  if($fastq=~/\.gz$/i){
+    logmsg "Decompressing fastq for jellyfish into $uncompressedFastq";
+    system("zcat $fastq > $uncompressedFastq"); die if $?;
+    system("jellyfish count $jellyfishCountOptions $uncompressedFastq");
+  } else {
+    system("jellyfish count $jellyfishCountOptions $fastq");
+  }
+  die "Error: problem with jellyfish" if $?;
+
+  logmsg "Jellyfish dump $outprefix";
+  my $lowerCount=$$settings{gt}+1;
+  system("jellyfish dump --lower-count=$lowerCount --column --tab -o $kmerTsv $outprefix");
+  die if $?;
+
+  # Load kmers to memory
+  logmsg "Reading jellyfish kmers to memory";
+  open(TSV,$kmerTsv) or die "ERROR: Could not open $kmerTsv: $!";
+  while(<TSV>){
+    chomp;
+    my @F=split /\t/;
+    $kmer{$F[0]}=$F[1];
+  }
+  close TSV;
+
+  # cleanup
+  for($jfDb, $kmerTsv, $outprefix, $uncompressedFastq){
+    unlink $_ if($_ && -e $_);
+  }
 
   return \%kmer;
 }
@@ -241,6 +388,20 @@ sub openFastq{
   return $fh;
 }
 
+# http://www.perlmonks.org/?node_id=761662
+sub which{
+  my($exe,$settings)=@_;
+  
+  my $tool_path="";
+  for my $path ( split /:/, $ENV{PATH} ) {
+      if ( -f "$path/$exe" && -x "$path/$exe" ) {
+          $tool_path = "$path/$exe";
+          last;
+      }
+  }
+  
+  return $tool_path;
+}
 
 sub usage{
   "
@@ -251,20 +412,26 @@ sub usage{
        This script does not require any dependencies.
 
   Usage: $0 file.fastq[.gz]
-  --gt     0   Look for the first peak at this kmer count
+  --gt     1   Look for the first peak at this kmer count
                and then the next valley.
   --kmer   21  kmer length
   --delta  100 How different the counts have to be to
                detect a valley or peak
+  --numcpus  1
 
   OUTPUT
   --hist   ''  A file to write the histogram, or a file
                to read the histogram if it already exists.
                Useful if you want to rerun this script.
-  --valleys,   Valleys will be in the output by default
-  --novalleys
-  --peaks,     Maximum peaks will not be in the output
-  --nopeaks    by default
+  --valleys,   To output valleys (default)
+  --novalleys  To supppress valleys
+  --peaks,     To output maximum peaks (default)
+  --nopeaks    To suppress maximum peaks
+
+  MISC
+  --kmerCounter ''  The kmer counting program to use.
+                    Default: (empty string) auto-choose
+                    Options: perl, jellyfish
   "
 }
 
