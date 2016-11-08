@@ -22,6 +22,8 @@ use Bio::Tree::DistanceFactory;
 use Bio::Matrix::IO;
 use Bio::Tree::Statistics;
 
+my %delta :shared=(); # change in amplitude for peak detection, for each fastq
+my $scriptDir=dirname $0;
 local $0=basename $0;
 
 exit main();
@@ -36,7 +38,7 @@ sub main{
 
   # Mash-specific options
   $$settings{genomesize}||=5000000;
-  $$settings{mindepth}||=0;
+  $$settings{mindepth}||=5;
   $$settings{kmerlength}||=21;
   $$settings{'sketch-size'}||=10000;
 
@@ -133,7 +135,7 @@ sub mashSketch{
     } elsif(-s $fastq < 1){
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
     } else {
-      system("mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq > /dev/null 2>&1");
+      system("mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2");
       die if $?;
     }
 
@@ -200,21 +202,40 @@ sub mashDist{
 sub determineMinimumDepth{
   my($fastq,$mindepth,$kmerlength,$settings)=@_;
 
+  $delta{$fastq}//=100;
+  my $defaultDepth=1; # if no valley is detected
+
   return $mindepth if($mindepth > 0);
 
   my $basename=basename($fastq,@fastqExt);
   
   # Run the min abundance finder to find the valleys
+  my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
+  mkdir $minAbundanceTempdir;
   my $histFile="$$settings{tempdir}/$basename.hist.tsv";
-  my @valley=`min_abundance_finder.pl $fastq --kmer $kmerlength --valleys --nopeaks --hist $histFile`;
+  my @valley=`$scriptDir/min_abundance_finder.pl $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --valleys --nopeaks --hist $histFile --delta $delta{$fastq}`;
   die "ERROR with min_abundance_finder.pl on $fastq: $!" if($?);
   chomp(@valley);
+  # Some cleanup of large files
+  unlink $_ for(glob("$minAbundanceTempdir/*"));
+  rmdir $minAbundanceTempdir;
+
+  # If there is no valley, return a default value
+  if(!defined $valley[1]){
+    $delta{$fastq}=int($delta{$fastq}/2);
+    if($delta{$fastq} > 10){
+      logmsg "Trying again to determine a min depth with delta==$delta{$fastq} on $fastq";
+      return determineMinimumDepth(@_);
+    }
+    logmsg "WARNING: no valleys were found! Reporting minimum kmer coverage as $defaultDepth.";
+    return $defaultDepth;
+  }
   
   # Discard the header but keep the first line
   my($minKmerCount, $countOfCounts)=split(/\t/,$valley[1]);
-  $minKmerCount=0 if(!defined($minKmerCount) || $minKmerCount < 1);
+  $minKmerCount=1 if(!defined($minKmerCount) || $minKmerCount < 1);
 
-  logmsg "Setting the min depth as $minKmerCount for $fastq";
+  logmsg "Setting the min depth as $minKmerCount for $fastq (delta==$delta{$fastq})";
 
   return $minKmerCount;
 }
@@ -236,7 +257,7 @@ sub usage{
 
   MASH SKETCH OPTIONS
   --genomesize         5000000
-  --mindepth           0    If mindepth is zero, then it will be
+  --mindepth           5    If mindepth is zero, then it will be
                             chosen in a smart but slower method,
                             to discard lower-abundance kmers.
   --kmerlength         21
