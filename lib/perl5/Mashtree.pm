@@ -1,3 +1,4 @@
+#!/usr/bin/env perl
 package Mashtree;
 use strict;
 use warnings;
@@ -9,7 +10,7 @@ use List::Util qw/shuffle/;
 use threads;
 use threads::shared;
 
-use lib dirname($INC{"Mashtree.pm"})."/lib/perl5";
+use lib dirname($INC{"Mashtree.pm"});
 use Bio::Matrix::IO;
 
 our @EXPORT_OK = qw(
@@ -23,7 +24,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $MASHTREE_VERSION="0.07";
+our $MASHTREE_VERSION="0.08";
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fa);
 our @bamExt=qw(.sorted.bam .bam);
@@ -190,7 +191,6 @@ sub createTreeFromPhylip{
   return $treeObj;
 
 }
-
 
 1; # gotta love how we we return 1 in modules. TRUTH!!!
 
