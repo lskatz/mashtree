@@ -33,7 +33,7 @@ sub selectDb{
 
   $self->connect();
 
-  if(-e $dbFile){
+  if(-e $dbFile && -s $dbFile > 0){
     return 0;
   }
 
@@ -78,6 +78,8 @@ sub addDistances{
     }
     my($subject,$distance)=split(/\t/,$_);
     
+    next if(defined($self->findDistance($query,$subject)));
+
     $dbh->do(qq(
       INSERT INTO DISTANCE VALUES("$query", "$subject", $distance);
     ));
@@ -98,8 +100,13 @@ sub findDistance{
   if($rv < 0){
     die $DBI::errstr;
   }
-  my($distance)=$sth->fetchrow_array();
 
+  # Distance will be undefined unless there is a result
+  # on the SQL select statement.
+  my $distance;
+  while(my @row=$sth->fetchrow_array()){
+    ($distance)=@row;
+  }
   return $distance;
 }
 
