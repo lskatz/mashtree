@@ -84,6 +84,7 @@ sub openFastq{
 # truncates to a length, and adds right-padding.
 sub _truncateFilename{
   my($file,$settings)=@_;
+  $$settings{truncLength}||=255;
   my $name=basename($file,@fastqExt);
   $name=substr($name,0,$$settings{truncLength}); 
   $name.=" " x ($$settings{truncLength}-length($name)); 
