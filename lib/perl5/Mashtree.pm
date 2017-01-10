@@ -14,7 +14,7 @@ use lib dirname($INC{"Mashtree.pm"});
 use Bio::Matrix::IO;
 
 our @EXPORT_OK = qw(
-           logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip
+           logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames
            @fastqExt @fastaExt @bamExt @vcfExt @richseqExt
            $MASHTREE_VERSION
          );
