@@ -33,7 +33,6 @@ exit main();
 sub main{
   my $settings={};
   my @wrapperOptions=qw(help distance-matrix tempdir=s reps=i);
-  #my @mashOptions=qw(kmerlength=i truncLength=i genomesize=i mindepth=i warn-on-duplicate sketch-size=i);
   GetOptions($settings,@wrapperOptions) or die $!;
   $$settings{reps}||=0;
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -126,12 +125,14 @@ sub main{
 
 sub usage{
   my $usage="$0: a wrapper around mashtree.pl.
-  Usage: $0 [options] -- [mashtree.pl options] *.fastq.gz *.fasta > tree.dnd
+  Usage: $0 [options] [-- mashtree.pl options] *.fastq.gz *.fasta > tree.dnd
   --distance-matrix    ''   Output file for distance matrix
   --reps               0    How many bootstrap repetitions to run;
                             If zero, no bootstrapping.
   
   MASHTREE.PL OPTIONS:\n".
+  # Print the mashtree options starting with numcpus,
+  # skipping the tempdir option.
   `mashtree.pl --help 2>&1 | grep -A 999 numcpus | grep -v ^Stopped`;
 
   return $usage;
