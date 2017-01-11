@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Exporter qw(import);
 use File::Basename qw/fileparse basename dirname/;
+use List::Util qw/shuffle/;
 use Data::Dumper;
 use DBI;
 
@@ -130,6 +131,31 @@ sub addDistances{
   return $numInserted;
 }
 
+# Find all distances with a single genome
+sub findDistances{
+  my($self,$genome1)=@_;
+
+  my $dbh=$self->{dbh};
+  
+  my $sth=$dbh->prepare(qq(SELECT GENOME2,DISTANCE 
+    FROM DISTANCE 
+    WHERE GENOME1="$genome1"
+    ORDER BY GENOME2
+  ));
+  my $rv = $sth->execute() or die $DBI::errstr;
+  if($rv < 0){
+    die $DBI::errstr;
+  }
+
+  # Distance will be undefined unless there is a result
+  # on the SQL select statement.
+  my %distance;
+  while(my @row=$sth->fetchrow_array()){
+    $distance{$row[0]}=$row[1];
+  }
+  return \%distance;
+}
+
 sub findDistance{
   my($self,$genome1,$genome2)=@_;
 
@@ -153,31 +179,42 @@ sub findDistance{
 # Format can be:
 #   tsv    3-column format
 #   phylip Phylip matrix format
+# sortBy can be:
+#   abc
+#   rand
 sub toString{
-  my($self,$format)=@_;
+  my($self,$format,$sortBy)=@_;
   $format//="tsv";
   $format=lc($format);
+  $sortBy//="abc";
+  $sortBy=lc($sortBy);
   
   if($format eq "tsv"){
-    return $self->toString_tsv();
+    return $self->toString_tsv($sortBy);
   } elsif($format eq "phylip"){
-    return $self->toString_phylip();
+    return $self->toString_phylip($sortBy);
   }
 
   die "ERROR: could not format ".ref($self)." as $format.";
 }
 
 sub toString_tsv{
-  my($self)=@_;
+  my($self,$sortBy)=@_;
   my $dbh=$self->{dbh};
 
   my $str="";
-  
-  my $sth=$dbh->prepare(qq(
+
+  my $sql=qq(
     SELECT GENOME1,GENOME2,DISTANCE
     FROM DISTANCE
-    ORDER BY GENOME1,GENOME2 ASC
-  ));
+  );
+  if($sortBy eq 'abc'){
+    $sql.="ORDER BY GENOME1,GENOME2 ASC";
+  } elsif($sortBy eq 'rand'){
+    $sql.="ORDER BY NEWID()";
+  }
+  
+  my $sth=$dbh->prepare($sql);
   my $rv=$sth->execute or die $DBI::errstr;
   if($rv < 0){
     die $DBI::errstr;
@@ -190,7 +227,7 @@ sub toString_tsv{
 }
 
 sub toString_phylip{
-  my($self)=@_;
+  my($self,$sortBy)=@_;
   my $dbh=$self->{dbh};
 
   my $str="";
@@ -214,14 +251,22 @@ sub toString_phylip{
     $maxGenomeLength=length($row[0]) if(length($row[0]) > $maxGenomeLength);
   }
 
+  # We are already sorted alphabetically, so just worry
+  # about whether or not we sort by random
+  if($sortBy eq 'rand'){
+    @name = shuffle(@name);
+  }
+
   my $numGenomes=@name;
 
   $str.=(" " x 4) . "$numGenomes\n";
   for(my $i=0;$i<$numGenomes;$i++){
     $str.=$name[$i];
     $str.=" " x ($maxGenomeLength - length($name[$i]) + 2);
+    my $distanceHash=$self->findDistances($name[$i]);
+
     for(my $j=0;$j<$numGenomes;$j++){
-      $str.=sprintf("%0.4f  ",$self->findDistance($name[$i],$name[$j]));
+      $str.=sprintf("%0.4f  ",$$distanceHash{$name[$j]});
     }
     $str=~s/ +$/\n/; # replace that trailing whitespace with a newline
   }
