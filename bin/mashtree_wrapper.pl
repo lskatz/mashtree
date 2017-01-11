@@ -33,11 +33,12 @@ exit main();
 
 sub main{
   my $settings={};
-  my @wrapperOptions=qw(help distance-matrix tempdir=s reps=i);
+  my @wrapperOptions=qw(help distance-matrix tempdir=s reps=i numcpus=i);
   GetOptions($settings,@wrapperOptions) or die $!;
   $$settings{reps}||=0;
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
   mkdir($$settings{tempdir}) if(!-d $$settings{tempdir});
+  $$settings{numcpus}||=1;
 
   logmsg "Temporary directory will be $$settings{tempdir}";
 
@@ -50,6 +51,9 @@ sub main{
   if(grep(/^\-+tempdir$/,@ARGV) || grep(/^\-+t$/,@ARGV)){
     die "ERROR: tempdir was specified for mashtree.pl";
   }
+  if(grep(/^\-+numcpus$/,@ARGV) || grep(/^\-+n$/,@ARGV)){
+    die "ERROR: numcpus was specified for mashtree.pl";
+  }
 
   my $mashOptions=join(" ",@ARGV);
   
@@ -60,38 +64,23 @@ sub main{
 
   # Make the observed directory and run Mash
   mkdir($observeddir);
-  system("$FindBin::RealBin/mashtree.pl --tempdir $observeddir $mashOptions > $observedTree.tmp && mv $observedTree.tmp $observedTree");
+  system("$FindBin::RealBin/mashtree.pl --tempdir $observeddir --numcpus $$settings{numcpus} $mashOptions > $observedTree.tmp && mv $observedTree.tmp $observedTree");
   die if $?;
 
-  my $mashtreeDb=Mashtree::Db->new("$observeddir/distances.sqlite");
+  # Multithreaded reps
+  my $repQueue=Thread::Queue->new(1..$$settings{reps});
+  my @thr;
+  for(0..$$settings{numcpus}-1){
+    $thr[$_]=threads->new(\&repWorker, "$observeddir/distances.sqlite", $repQueue, $settings);
+    $repQueue->enqueue(undef);
+  }
 
-  logmsg "Running $$settings{reps} replicates";
   my @bsTree;
-  # TODO: multithread
-  for(my $i=1;$i<=$$settings{reps}; $i++){
-    # While we are running replicates, if the user enters ctrl-C,
-    # Mashtree will simply stop running replicates and will
-    # move onto the bootstrapped tree.
-    local $SIG{INT}=sub{$$settings{reps}=$i; logmsg "Caught ^C. Only ran $i reps."; return 0;};
-
-    my $tempdir="$$settings{tempdir}/rep$i";
-    mkdir($tempdir);
-    if($i % 100 == 0){
-      logmsg "Mashtree replicate $i - $tempdir";
+  for(@thr){
+    my $treeArr=$_->join;
+    for(@$treeArr){
+      push(@bsTree,Bio::TreeIO->new(-file=>$_)->next_tree);
     }
-
-    # Test the neighbor-joining algorithm by shuffling the input order
-    # Make a new shuffled matrix
-
-    my $phylipString=$mashtreeDb->toString("phylip","rand");
-    open(my $phylipFh,">","$tempdir/distances.phylip") or die "ERROR: could not open $tempdir/distances.phylip: $!";
-    print $phylipFh $phylipString;
-    close $phylipFh;
-
-    # Make a tree from the shuffled matrix
-    createTreeFromPhylip("$tempdir/distances.phylip",$tempdir,$settings);
-
-    push(@bsTree,Bio::TreeIO->new(-file=>"$tempdir/tree.dnd")->next_tree);
   }
   
   # Combine trees into a bootstrapped tree and write it 
@@ -119,6 +108,33 @@ sub main{
   return 0;
 }
 
+sub repWorker{
+  my($dbFile,$repQueue,$settings)=@_;
+
+  my $mashtreeDb=Mashtree::Db->new($dbFile);
+
+  my @bsTree;
+  while(defined(my $rep=$repQueue->dequeue())){
+    my $tempdir="$$settings{tempdir}/rep$rep";
+    mkdir($tempdir);
+    if($rep % 100 == 0){
+      logmsg "Mashtree replicate $rep - $tempdir";
+    }
+
+    # Test the neighbor-joining algorithm by shuffling the input order
+    # Make a new shuffled matrix
+    my $phylipString=$mashtreeDb->toString("phylip","rand");
+    open(my $phylipFh,">","$tempdir/distances.phylip") or die "ERROR: could not open $tempdir/distances.phylip: $!";
+    print $phylipFh $phylipString;
+    close $phylipFh;
+
+    # Make a tree from the shuffled matrix
+    createTreeFromPhylip("$tempdir/distances.phylip",$tempdir,$settings);
+    push(@bsTree,"$tempdir/tree.dnd");
+  }
+  return \@bsTree;
+}
+
 #######
 # Utils
 #######
@@ -129,11 +145,13 @@ sub usage{
   --distance-matrix    ''   Output file for distance matrix
   --reps               0    How many bootstrap repetitions to run;
                             If zero, no bootstrapping.
+  --numcpus            1    This will be passed to mashtree.pl and will
+                            be used to multithread reps.
   
   MASHTREE.PL OPTIONS:\n".
   # Print the mashtree options starting with numcpus,
   # skipping the tempdir option.
-  `mashtree.pl --help 2>&1 | grep -A 999 numcpus | grep -v ^Stopped`;
+  `mashtree.pl --help 2>&1 | grep -A 999 "TREE OPTIONS" | grep -v ^Stopped`;
 
   return $usage;
 }
