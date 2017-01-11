@@ -31,6 +31,18 @@ sub new{
   return $self;
 }
 
+sub clone{
+  my($self)=@_;
+
+  my $clone={};
+  $clone={
+    dbFile    => $self->{dbFile},
+    dbh       => $self->{dbh}->clone,
+  };
+  bless($clone,"Mashtree::Db");
+  return $clone;
+}
+
 # Create an SQLite database for genome distances.
 sub selectDb{
   my($self, $dbFile)=@_;
@@ -69,11 +81,20 @@ sub connect{
   return $dbh;
 }
 
+# No need to call this usually because the object will 
+# disconnect from the database when it is destroyed.
+sub disconnect{
+  my($self)=@_;
+  $self->{dbh}->disconnect();
+}
+
 sub addDistances{
   my($self,$distancesFile)=@_;
 
   my $dbh=$self->{dbh};
+  my $numInserted=0;   # how many are going to be inserted?
 
+  my $insertSQL="INSERT INTO DISTANCE VALUES";
   open(my $fh, "<", $distancesFile) or die "ERROR: could not read $distancesFile: $!";
   my $query="";
   while(<$fh>){
@@ -90,14 +111,23 @@ sub addDistances{
     
     next if(defined($self->findDistance($query,$subject)));
 
-    $dbh->do(qq(
-      INSERT INTO DISTANCE VALUES("$query", "$subject", $distance);
-    ));
-    
-    if($dbh->err()){
-      die "ERROR: could not insert $query,$subject,$distance into the database:\n  ".$dbh->err();
-    }
+    $numInserted++;
+    $insertSQL.=qq( ("$query", "$subject", $distance), );
+
   }
+
+  $insertSQL=~s/\s*,\s*$//; # remove whitespace and comma from the end
+
+  if($numInserted == 0){
+    return $numInserted;
+  }
+  
+  $dbh->do($insertSQL);
+  if($dbh->err()){
+    die "ERROR: could not insert $distancesFile into the database with query\n  $insertSQL\n  ".$dbh->err();
+  }
+
+  return $numInserted;
 }
 
 sub findDistance{

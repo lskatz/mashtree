@@ -18,12 +18,14 @@ use threads::shared;
 use FindBin;
 use lib "$FindBin::RealBin/../lib/perl5";
 use Mashtree qw/logmsg @fastqExt @fastaExt _truncateFilename distancesToPhylip createTreeFromPhylip $MASHTREE_VERSION/;
+use Mashtree::Db;
 use Bio::Tree::DistanceFactory;
 use Bio::Matrix::IO;
 use Bio::Tree::Statistics;
 
 my %delta :shared=(); # change in amplitude for peak detection, for each fastq
 my $scriptDir=dirname $0;
+my $dbhLock :shared;  # Use this as a lock so that only one thread writes to the db at a time
 local $0=basename $0;
 
 exit main();
@@ -64,9 +66,7 @@ sub main{
 
   my $sketches=sketchAll(\@reads,"$$settings{tempdir}",$settings);
 
-  my $distances=mashDistance($sketches,$$settings{tempdir},$settings);
-
-  my $phylip = distancesToPhylip($distances,$$settings{tempdir},$settings);
+  my $phylip = mashDistance($sketches,$$settings{tempdir},$settings);
 
   logmsg "Creating a NJ tree with BioPerl";
   my $treeObj = createTreeFromPhylip($phylip,$$settings{tempdir},$settings);
@@ -156,47 +156,57 @@ sub mashDistance{
   print $mshListFh $_."\n" for(@$mshList);
   close $mshListFh;
 
+  # Instatiate the database and create the table before the threads get to it
+  my $mashtreeDbFilename="$outdir/distances.sqlite";
+  my $mashtreeDb=Mashtree::Db->new($mashtreeDbFilename);
+
   my $mshQueue=Thread::Queue->new(@$mshList);
   my @thr;
   for(0..$$settings{numcpus}-1){
-    $thr[$_]=threads->new(\&mashDist,$outdir,$mshQueue,$mshListFilename,$settings);
+    $thr[$_]=threads->new(\&mashDist,$outdir,$mshQueue,$mshListFilename,$mashtreeDbFilename,$settings);
   }
 
   $mshQueue->enqueue(undef) for(@thr);
 
-  my $distfile="$outdir/distances.tsv";
-  open(DIST,">",$distfile) or die "ERROR: could not open $distfile for writing: $!";
+  logmsg "Joining $$settings{numcpus} threads";
   for(@thr){
     my $distfiles=$_->join;
-    for my $file(@$distfiles){
-      # Print the contents of each dist file to the
-      # main dist file.
-      open(ONEDISTFILE,"<",$file) or die "ERROR: could not open $file for reading: $!";
-      while(<ONEDISTFILE>){
-        print DIST $_;
-      }
-      close ONEDISTFILE;
-    }
   }
-  close DIST;
 
-  return $distfile;
+  my $phylip = "$outdir/distances.phylip";
+  logmsg "Converting to phylip format into $phylip";
+  open(my $phylipFh, ">", $phylip) or die "ERROR: could not write to $phylip: $!";
+  print $phylipFh $mashtreeDb->toString("phylip");
+  close $phylipFh;
+
+  return $phylip;
 }
 
 # Individual mash distance
 sub mashDist{
-  my($outdir,$mshQueue,$mshList,$settings)=@_;
-  my @dist;
+  my($outdir,$mshQueue,$mshList,$mashtreeDbFilename,$settings)=@_;
+  my @distFile;
+
+  my $mashtreeDb=Mashtree::Db->new($mashtreeDbFilename);
   while(defined(my $msh=$mshQueue->dequeue)){
     my $outfile="$outdir/".basename($msh).".tsv";
     logmsg "Distances for $msh";
     system("mash dist -t $msh -l $mshList > $outfile");
     die "ERROR with 'mash dist -t $msh -l $mshList'" if $?;
 
-    push(@dist,$outfile);
+    push(@distFile,$outfile);
   }
 
-  return \@dist;
+  # Disconnect right away, before the lock, if no records
+  # are going to be inserted into the database
+  if(@distFile < 1){
+    $mashtreeDb->disconnect();
+  }
+
+  lock($dbhLock);
+  for my $dist(@distFile){
+    $mashtreeDb->addDistances($dist);
+  }
 }
 
 sub determineMinimumDepth{
