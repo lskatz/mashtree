@@ -32,7 +32,7 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth=i truncLength=i kmerlength=i sort-order=s sketch-size=i)) or die $!;
+  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
