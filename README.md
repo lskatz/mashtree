@@ -30,7 +30,7 @@ For simple usage, see `mashtree.pl`.  For advanced options, look at `mashtree_wr
 
       MASH SKETCH OPTIONS
       --genomesize         5000000
-      --mindepth           0    If mindepth is zero, then it will be
+      --mindepth           5    If mindepth is zero, then it will be
                                 chosen in a smart but slower method,
                                 to discard lower-abundance kmers.
       --kmerlength         21
@@ -44,6 +44,7 @@ Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 
 * Mash >= v1.1
 * Perl with multithreading and with the BioPerl library
+* SQLite3
 
 ## References
 
