@@ -19,6 +19,7 @@ use threads::shared;
 use FindBin;
 use lib "$FindBin::RealBin/../lib/perl5";
 use Mashtree qw/logmsg @fastqExt @fastaExt createTreeFromPhylip/;
+use Mashtree::Db;
 use Bio::SeqIO;
 use Bio::TreeIO;
 use Bio::Tree::DistanceFactory;
@@ -62,8 +63,7 @@ sub main{
   system("$FindBin::RealBin/mashtree.pl --tempdir $observeddir $mashOptions > $observedTree.tmp && mv $observedTree.tmp $observedTree");
   die if $?;
 
-  # Read the distance matrix file for shuffling in the bootstrap step.
-  my $matrixObj=Bio::Matrix::IO->new(-format=>"phylip", -file=>$obsDistances)->next_matrix;
+  my $mashtreeDb=Mashtree::Db->new("$observeddir/distances.sqlite");
 
   logmsg "Running $$settings{reps} replicates";
   my @bsTree;
@@ -82,12 +82,12 @@ sub main{
 
     # Test the neighbor-joining algorithm by shuffling the input order
     # Make a new shuffled matrix
-    my $shuffledMatrixObj=$matrixObj;
-    @{$shuffledMatrixObj->{_names}} = shuffle(@{$shuffledMatrixObj->{_names}});
-    my $matrixOut=Bio::Matrix::IO->new(-format=>'phylip',-file=>">$tempdir/distances.phylip");
-    $matrixOut->write_matrix($shuffledMatrixObj);
-    $matrixOut->close; # need to flush the buffer to the file for the next step to work
-    
+
+    my $phylipString=$mashtreeDb->toString("phylip","rand");
+    open(my $phylipFh,">","$tempdir/distances.phylip") or die "ERROR: could not open $tempdir/distances.phylip: $!";
+    print $phylipFh $phylipString;
+    close $phylipFh;
+
     # Make a tree from the shuffled matrix
     createTreeFromPhylip("$tempdir/distances.phylip",$tempdir,$settings);
 
