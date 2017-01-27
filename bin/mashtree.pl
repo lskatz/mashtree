@@ -40,7 +40,7 @@ sub main{
 
   # Mash-specific options
   $$settings{genomesize}||=5000000;
-  $$settings{mindepth}||=5;
+  $$settings{mindepth}//=5;
   $$settings{kmerlength}||=21;
   $$settings{'sketch-size'}||=10000;
 
