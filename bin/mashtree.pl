@@ -73,7 +73,7 @@ sub main{
 
   print $treeObj->as_text('newick');
   print "\n";
-  
+
   return 0;
 }
 
@@ -179,6 +179,14 @@ sub mashDistance{
   print $phylipFh $mashtreeDb->toString("phylip");
   close $phylipFh;
 
+  if($$settings{outmatrix}){
+    logmsg "Writing a distance matrix to $$settings{outmatrix}";
+    open(my $matrixFh, ">", $$settings{outmatrix}) or die "ERROR: could not write to $$settings{outmatrix}: $!";
+    print $matrixFh $mashtreeDb->toString("matrix");
+    close $matrixFh;
+  }
+  
+
   return $phylip;
 }
 
@@ -258,6 +266,8 @@ sub usage{
   --tempdir                 If not specified, one will be made for you
                             and then deleted at the end of this script.
   --numcpus            1    This script uses Perl threads.
+  --outmatrix          ''   If specified, will write a distance matrix
+                            in tab-delimited format
 
   TREE OPTIONS
   --truncLength        250  How many characters to keep in a filename

@@ -178,6 +178,7 @@ sub findDistance{
 
 # Format can be:
 #   tsv    3-column format
+#   matrix all-vs all tsv format
 #   phylip Phylip matrix format
 # sortBy can be:
 #   abc
@@ -191,11 +192,32 @@ sub toString{
   
   if($format eq "tsv"){
     return $self->toString_tsv($sortBy);
+  } elsif($format eq "matrix"){
+    return $self->toString_matrix($sortBy);
   } elsif($format eq "phylip"){
     return $self->toString_phylip($sortBy);
   }
 
   die "ERROR: could not format ".ref($self)." as $format.";
+}
+
+sub toString_matrix{
+  my($self,$sortBy)=@_;
+
+  my %distance=$self->toString_tsv($sortBy);
+  my @name=keys(%distance);
+  my $numNames=@name;
+
+  my $str=join("\t",".",@name)."\n";
+  for(my $i=0;$i<$numNames;$i++){
+    $str.=$name[$i];
+    for(my $j=0;$j<$numNames;$j++){
+      $str.="\t".$distance{$name[$i]}{$name[$j]};
+    }
+    $str.="\n";
+  }
+
+  return $str;
 }
 
 sub toString_tsv{
@@ -220,9 +242,13 @@ sub toString_tsv{
     die $DBI::errstr;
   }
 
+  my %distance;
   while(my @row=$sth->fetchrow_array()){
+    $_=~s/^\s+|\s+$//g for(@row); # whitespace trim
     $str.=join("\t",@row)."\n";
+    $distance{$row[0]}{$row[1]}=$row[2];
   }
+  return %distance if(wantarray);
   return $str;
 }
 
