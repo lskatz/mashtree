@@ -21,6 +21,9 @@ For simple usage, see `mashtree.pl`.  For advanced options, look at `mashtree_wr
       --tempdir                 If not specified, one will be made for you
                                 and then deleted at the end of this script.
       --numcpus            1    This script uses Perl threads.
+      --outmatrix          ''   If specified, will write a distance matrix
+                                in tab-delimited format
+
 
       TREE OPTIONS
       --truncLength        250  How many characters to keep in a filename
@@ -43,10 +46,22 @@ Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 ## Requirements
 
 * Mash >= v1.1
-* Perl with multithreading and with the BioPerl library
+* Perl 
+  * multithreading 
+  * BioPerl library
 * SQLite3
+
+## Installation
+
+After downloading the latest release, go into the directory and run `make`
+
+    $ cd mashtree
+    $ make
+
+You can also check whether the prerequisite software has been installed by running `make check`.
 
 ## References
 
 *  Mash: http://mash.readthedocs.io
 *  BioPerl: http://bioperl.org
+
