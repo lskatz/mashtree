@@ -10,6 +10,8 @@ use Getopt::Long;
 use File::Temp qw/tempdir tempfile/;
 use File::Basename qw/basename dirname fileparse/;
 use File::Copy qw/copy/;
+use POSIX qw/floor/;
+use List::Util qw/min max/;
 
 use threads;
 use Thread::Queue;
@@ -61,6 +63,15 @@ sub main{
     die "ERROR: could not find $exe in your PATH" if $?;
   }
 
+  # Distributed cpus if we have few genomes but high numcpus
+  $$settings{cpus_per_mash}=floor($$settings{numcpus}/@reads);
+  $$settings{cpus_per_mash}=1 if($$settings{cpus_per_mash} < 1);
+  $$settings{numthreads}=min(scalar(@reads), $$settings{numcpus});
+
+  #die Dumper [$$settings{cpus_per_mash},$$settings{numthreads},\@reads];
+  #$$settings{cpus_per_mash}=1;
+  #$$settings{numthreads}=$$settings{numcpus};
+
   logmsg "Temporary directory will be $$settings{tempdir}";
   logmsg "$0 on ".scalar(@reads)." files";
 
@@ -85,7 +96,7 @@ sub sketchAll{
 
   my $readsQ=Thread::Queue->new(@$reads);
   my @thr;
-  for(0..$$settings{numcpus}-1){
+  for(0..$$settings{numthreads}-1){
     $thr[$_]=threads->new(\&mashSketch,$sketchDir,$readsQ,$settings);
   }
   
@@ -135,7 +146,7 @@ sub mashSketch{
     } elsif(-s $fastq < 1){
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
     } else {
-      system("mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2");
+      system("mash sketch -p $$settings{cpus_per_mash} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2");
       die if $?;
     }
 
@@ -162,13 +173,13 @@ sub mashDistance{
 
   my $mshQueue=Thread::Queue->new(@$mshList);
   my @thr;
-  for(0..$$settings{numcpus}-1){
+  for(0..$$settings{numthreads}-1){
     $thr[$_]=threads->new(\&mashDist,$outdir,$mshQueue,$mshListFilename,$mashtreeDbFilename,$settings);
   }
 
   $mshQueue->enqueue(undef) for(@thr);
 
-  logmsg "Joining $$settings{numcpus} threads";
+  logmsg "Joining $$settings{numthreads} threads";
   for(@thr){
     my $distfiles=$_->join;
   }
