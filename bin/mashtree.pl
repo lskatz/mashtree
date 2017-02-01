@@ -242,7 +242,7 @@ sub determineMinimumDepth{
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
   my $histFile="$$settings{tempdir}/$basename.hist.tsv";
-  my @valley=`$scriptDir/min_abundance_finder.pl $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --valleys --nopeaks --hist $histFile --delta $delta{$fastq}`;
+  my @valley=`$scriptDir/min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --valleys --nopeaks --hist $histFile --delta $delta{$fastq}`;
   die "ERROR with min_abundance_finder.pl on $fastq: $!" if($?);
   chomp(@valley);
   # Some cleanup of large files
