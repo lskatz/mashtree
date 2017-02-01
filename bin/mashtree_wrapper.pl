@@ -33,7 +33,7 @@ exit main();
 
 sub main{
   my $settings={};
-  my @wrapperOptions=qw(help distance-matrix tempdir=s reps=i numcpus=i);
+  my @wrapperOptions=qw(help outmatrix=s tempdir=s reps=i numcpus=i);
   GetOptions($settings,@wrapperOptions) or die $!;
   $$settings{reps}||=0;
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -51,8 +51,17 @@ sub main{
   if(grep(/^\-+tempdir$/,@ARGV) || grep(/^\-+t$/,@ARGV)){
     die "ERROR: tempdir was specified for mashtree.pl";
   }
+  # Numcpus: this needs to be specified in the wrapper and will
+  # appropriately be transferred to the mashtree.pl script
   if(grep(/^\-+numcpus$/,@ARGV) || grep(/^\-+n$/,@ARGV)){
     die "ERROR: numcpus was specified for mashtree.pl";
+  }
+  # Outmatrix: the wrapper script needs to control where
+  # the matrix goes because it can only have the outmatrix
+  # for the observed run and not the replicates for speed's
+  # sake.
+  if(grep(/^\-+outmatrix$/,@ARGV) || grep(/^\-+o$/,@ARGV)){
+    die "ERROR: outmatrix was specified for mashtree.pl";
   }
 
   my $mashOptions=join(" ",@ARGV);
@@ -61,10 +70,11 @@ sub main{
   my $observeddir="$$settings{tempdir}/observed";
   my $obsDistances="$observeddir/distances.phylip";
   my $observedTree="$observeddir/tree.dnd";
+  my $outmatrix="$observeddir/distances.tsv";
 
   # Make the observed directory and run Mash
   mkdir($observeddir);
-  system("$FindBin::RealBin/mashtree.pl --tempdir $observeddir --numcpus $$settings{numcpus} $mashOptions > $observedTree.tmp && mv $observedTree.tmp $observedTree");
+  system("$FindBin::RealBin/mashtree.pl --outmatrix $outmatrix --tempdir $observeddir --numcpus $$settings{numcpus} $mashOptions > $observedTree.tmp && mv $observedTree.tmp $observedTree");
   die if $?;
 
   # Multithreaded reps
@@ -101,8 +111,8 @@ sub main{
 
   system("cat $$settings{tempdir}/bstree.dnd"); die if $?;
 
-  if($$settings{'distance-matrix'}){
-    cp("$$settings{tempdir}/distances.tsv",$$settings{'distance-matrix'});
+  if($$settings{'outmatrix'}){
+    cp($outmatrix,$$settings{'outmatrix'});
   }
   
   return 0;
@@ -142,7 +152,7 @@ sub repWorker{
 sub usage{
   my $usage="$0: a wrapper around mashtree.pl.
   Usage: $0 [options] [-- mashtree.pl options] *.fastq.gz *.fasta > tree.dnd
-  --distance-matrix    ''   Output file for distance matrix
+  --outmatrix          ''   Output file for distance matrix
   --reps               0    How many bootstrap repetitions to run;
                             If zero, no bootstrapping.
   --numcpus            1    This will be passed to mashtree.pl and will
