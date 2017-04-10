@@ -19,11 +19,12 @@ use threads::shared;
 
 use FindBin;
 use lib "$FindBin::RealBin/../lib/perl5";
-use Mashtree qw/logmsg @fastqExt @fastaExt _truncateFilename distancesToPhylip createTreeFromPhylip $MASHTREE_VERSION/;
+use Mashtree qw/logmsg @fastqExt @fastaExt @richseqExt _truncateFilename distancesToPhylip createTreeFromPhylip $MASHTREE_VERSION/;
 use Mashtree::Db;
 use Bio::Tree::DistanceFactory;
 use Bio::Matrix::IO;
 use Bio::Tree::Statistics;
+use Bio::SeqIO;
 
 my %delta :shared=(); # change in amplitude for peak detection, for each fastq
 my $scriptDir=dirname $0;
@@ -119,7 +120,32 @@ sub mashSketch{
 
   my @msh;
   while(defined(my $fastq=$Q->dequeue)){
-    my($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt);
+    my($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt);
+
+    # If we see a richseq (e.g., gbk or embl), then convert it to fasta
+    # TODO If Mash itself accepts richseq, then consider
+    # doing away with this section.
+    if(grep {$_ eq $fileExt} @richseqExt){
+      # Make a temporary fasta file, but it needs to have a
+      # consistent name in case Mashtree is being run with
+      # the wrapper for bootstrap values.
+      # I can't exactly make a consistent filename in case
+      # different mashtree invocations collide, so
+      # I need to make a new temporary directory with a 
+      # consistent filename.
+      my $tempdir=tempdir("$$settings{tempdir}/convertFasta.XXXXXX", CLEANUP=>1);
+      my $tmpfasta="$tempdir/$fileName$fileExt.fasta";
+      my $in=Bio::SeqIO->new(-file=>$fastq);
+      my $out=Bio::SeqIO->new(-file=>">$tmpfasta", -format=>"fasta");
+      while(my $seq=$in->next_seq){
+        $out->write_seq($seq);
+      }
+      logmsg "Wrote $tmpfasta";
+
+      # Update our filename for downstream
+      $fastq=$tmpfasta;
+      ($fileName,$filePath,$fileExt)=fileparse($tmpfasta, @fastaExt);
+    }
 
     # Do different things depending on fastq vs fasta
     my $sketchXopts="";
