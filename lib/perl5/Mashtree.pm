@@ -24,12 +24,15 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $MASHTREE_VERSION="0.09";
+our $MASHTREE_VERSION="0.10";
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fa);
 our @bamExt=qw(.sorted.bam .bam);
 our @vcfExt=qw(.vcf.gz .vcf);
-our @richseqExt=qw(.gbk .gbf .gb .embl);
+# Richseq extensions were obtained mostly from bioperl under
+# the genbank, embl, and swissprot entries, under
+# the source for Bio::SeqIO
+our @richseqExt=qw(.gb .gbank .genbank .gbk .gbs .gbf .embl .ebl .emb .dat .swiss .sp);
 
 # Helpful things
 my $fhStick :shared;  # A thread can only open a fastq file if it has the talking stick.
