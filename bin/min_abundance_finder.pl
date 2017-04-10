@@ -53,10 +53,11 @@ sub main{
     # Read the cached histogram file
     $histogram=readHistogram($$settings{hist},$settings);
   } else {
+    $histogram=makeHistogram($fastq,$$settings{kmerlength},$settings);
     # Count kmers and make a histogram.  kmerToHist()
     # will optionally write the histogram file.
-    my $kmercount=countKmers($fastq,$$settings{kmerlength},$settings);
-    $histogram=kmerToHist($kmercount,$settings);
+    #my $kmercount=countKmers($fastq,$$settings{kmerlength},$settings);
+    #$histogram=kmerToHist($kmercount,$settings);
   }
   # Find peaks and valleys using the simplified 
   # 'delta' algorithm.
@@ -102,18 +103,14 @@ sub readHistogram{
   return \@hist;
 }
 
-# TODO: count kmers with faster programs in this order of
-# priority: jellyfish, KAnalyze, Khmer
-# and lastly, pure perl.
-
-sub countKmers{
+sub makeHistogram{
   my($fastq,$kmerlength,$settings)=@_;
-
-  my $kmerHash={};
 
   if($$settings{kmerCounter} =~ /^\s*$/){
     logmsg "Auto-detecting which kmer counter program to use.";
-    if(which("jellyfish")){
+    if(which("kmc") && which("kmc_tools")){
+      $$settings{kmerCounter}="kmc";
+    } elsif(which("jellyfish")){
       $$settings{kmerCounter}="jellyfish";
     } else {
       $$settings{kmerCounter}="pureperl";
@@ -123,13 +120,20 @@ sub countKmers{
   # try/catch kmer counting and if it fails, do the
   # pure perl method.  Don't redo pure perl if
   # it was already set up that way.
+  my $hist;
   eval{
     if($$settings{kmerCounter}=~ /(pure)?.*perl/i){
       logmsg "Counting with pure perl";
-      $kmerHash=countKmersPurePerl($fastq,$kmerlength,$settings);
+      my $kmerHash=countKmersPurePerl($fastq,$kmerlength,$settings);
+      $hist=kmerToHist($kmerHash,$settings);
+    } elsif($$settings{kmerCounter} =~ /^kmc$/i){
+      logmsg "Counting with KMC";
+      my $kmcFile=countKmersKmc($fastq,$kmerlength,$settings);
+      $hist=histogramKmc($kmcFile,$settings);
     } elsif($$settings{kmerCounter} =~ /jellyfish/i){
       logmsg "Counting with Jellyfish";
-      $kmerHash=countKmersJellyfish($fastq,$kmerlength,$settings);
+      my $jfFile=countKmersJellyfish($fastq,$kmerlength,$settings);
+      $hist=histogramJellyfish($jfFile,$settings);
     } else {
       die "ERROR: I do not understand the kmer counter $$settings{kmerCounter}";
     }
@@ -139,11 +143,12 @@ sub countKmers{
     if($$settings{kmerCounter}=~ /(pure)?.*perl/i){
       die "ERROR counting kmers with pure perl";
     }
-    logmsg "Error detected.  Trying again by counting with pure perl";
-    $kmerHash=countKmersPurePerl($fastq,$kmerlength,$settings);
+    logmsg "Error detected: $@.\n  Trying again by counting with pure perl";
+    my $kmerHash=countKmersPurePerl($fastq,$kmerlength,$settings);
+    $hist=kmerToHist($kmerHash,$settings);
   }
 
-  return $kmerHash;
+  return $hist;
 }
 
 sub countKmersPurePerl{
@@ -215,6 +220,53 @@ sub countKmersPurePerlWorker{
   return \%kmer;
 }
 
+sub countKmersKmc{
+  my($fastq,$kmerlength,$settings)=@_;
+  my $basename=basename($fastq);
+  my %kmer=();
+
+  # Version checking
+  my $kmcVersionLine=(`kmc 2>&1 | grep ver`)[0];
+  $kmcVersionLine=~/(\d+)(\.\d+)?/;
+  my $majorVersion=$1;
+  my $minorVersion=$2;
+  if($majorVersion < 3){
+    die "ERROR: KMC version 3 or above is required";
+  }
+
+  my $kmcTempdir="$$settings{tempdir}/kmc.tmp";
+  mkdir($kmcTempdir);
+
+  system("kmc -k$$settings{kmerlength} -ci$$settings{gt} -t$$settings{numcpus} $fastq $$settings{tempdir}/kmc $kmcTempdir");
+  die "ERROR: running kmc" if $?;
+  rmdir($kmcTempdir);
+
+  return "$$settings{tempdir}/kmc";
+  #time /opt/KMC3/kmc -k21 -ci1 -t16 in.fastq kmers1 KMC.tmp
+  #kmc_tools transform kmers1 histogram out.db
+}
+
+sub histogramKmc{
+  my($kmcFile, $settings)=@_;
+
+  my $histFile="$$settings{tempdir}/hist.tsv";
+  system("kmc_tools transform $kmcFile histogram $histFile");
+  die "ERROR with kmc_tools" if $?;
+
+  my @hist;
+  open(my $kmcHistFh, $histFile) or die "ERROR: coult not open $histFile: $!";
+  while(<$kmcHistFh>){
+    s/^\s+|\s+$//g; 
+    my($freq,$count)=split /\s+/;
+    $hist[$freq]=$count+0;
+  }
+  # Set a default value
+  for(@hist){
+    $_//=0;
+  }
+
+  return \@hist;
+}
 
 sub countKmersJellyfish{
   my($fastq,$kmerlength,$settings)=@_;
@@ -248,27 +300,34 @@ sub countKmersJellyfish{
   }
   die "Error: problem with jellyfish" if $?;
 
-  logmsg "Jellyfish dump $outprefix";
-  my $lowerCount=$$settings{gt}+1;
-  system("jellyfish dump --lower-count=$lowerCount --column --tab -o $kmerTsv $outprefix");
-  die if $?;
-
-  # Load kmers to memory
-  logmsg "Reading jellyfish kmers to memory";
-  open(TSV,$kmerTsv) or die "ERROR: Could not open $kmerTsv: $!";
-  while(<TSV>){
-    chomp;
-    my @F=split /\t/;
-    $kmer{$F[0]}=$F[1];
-  }
-  close TSV;
-
   # cleanup
-  for($jfDb, $kmerTsv, $outprefix, $uncompressedFastq){
+  for($uncompressedFastq){
     unlink $_ if($_ && -e $_);
   }
 
-  return \%kmer;
+  return $outprefix;
+}
+
+sub histogramJellyfish{
+  my($jfFile,$settings)=@_;
+
+  my $histFile="$$settings{tempdir}/hist.tsv";
+  system("jellyfish histo '$jfFile' > $histFile");
+  die "ERROR: cannot run jellyfish histo on $jfFile" if $?;
+
+  my @hist=();
+  open(my $jfHistFh, $histFile) or die "ERROR: could read $histFile: $!";
+  while(<$jfHistFh>){
+    s/^\s+|\s+$//g; 
+    my($freq,$count)=split /\s+/;
+    $hist[$freq]=$count+0;
+  }
+  # Set a default value
+  for(@hist){
+    $_//=0;
+  }
+
+  return \@hist;
 }
 
 sub kmerToHist{
