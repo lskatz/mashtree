@@ -10,7 +10,7 @@ SHELL   := /bin/bash
 
 .DEFAULT: install
 
-.PHONY: core extras install install-perlModules install-config core extras
+.PHONY: install install-perlModules
 
 .DELETE_ON_ERROR:
 
@@ -38,3 +38,8 @@ check-sqlite3:
 check-mash:
 	@mash --version >/dev/null || (echo "ERROR: mash not found! For installation: http://mash.readthedocs.io" && exit 1)
 
+test:
+	# Test to see if the first line of the usage is correct, 
+	# ie that the script runs at all
+	if [[ $$(mashtree.pl --help 2>&1 | head -n 1  | cut -f 1 -d ' ') != "mashtree.pl:" ]]; then exit 1; fi;
+	@echo "Passed all tests!";

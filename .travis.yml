@@ -1,0 +1,3 @@
+language: perl
+perl:
+  - "5.18-shrplib"
