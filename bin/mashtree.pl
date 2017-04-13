@@ -118,9 +118,33 @@ sub sketchAll{
 sub mashSketch{
   my($sketchDir,$Q,$settings)=@_;
 
+  # If any file needs to be converted, it will end up in
+  # this directory.
+  my $tempdir=tempdir("$$settings{tempdir}/convertFasta.XXXXXX", CLEANUP=>1);
+
   my @msh;
+  # $fastq is a misnomer: it could be any kind of accepted sequence file
   while(defined(my $fastq=$Q->dequeue)){
     my($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt);
+
+    # Unzip the file. This temporary file will
+    # only exist if the correct extensions are detected.
+    my $unzipped="$tempdir/".basename($fastq);
+    $unzipped=~s/\.(gz|bz2?|zip)$//i;
+    if($fastq=~/\.gz$/i){
+      system("gzip  -cd $fastq > $unzipped");
+      die "ERROR with gzip  -cd $fastq" if $?;
+      $fastq=$unzipped;
+    } elsif($fastq=~/\.bz2?$/i){
+      system("bzip2 -cd $fastq > $unzipped");
+      die "ERROR with bzip2 -cd $fastq" if $?;
+      $fastq=$unzipped;
+    } elsif($fastq=~/\.zip$/i){
+      system("unzip -p  $fastq > $unzipped");
+      die "ERROR with unzip -p  $fastq" if $?;
+      $fastq=$unzipped;
+    }
+
 
     # If we see a richseq (e.g., gbk or embl), then convert it to fasta
     # TODO If Mash itself accepts richseq, then consider
@@ -133,7 +157,6 @@ sub mashSketch{
       # different mashtree invocations collide, so
       # I need to make a new temporary directory with a 
       # consistent filename.
-      my $tempdir=tempdir("$$settings{tempdir}/convertFasta.XXXXXX", CLEANUP=>1);
       my $tmpfasta="$tempdir/$fileName$fileExt.fasta";
       my $in=Bio::SeqIO->new(-file=>$fastq);
       my $out=Bio::SeqIO->new(-file=>">$tmpfasta", -format=>"fasta");
@@ -297,9 +320,10 @@ sub determineMinimumDepth{
 
 sub usage{
   "$0: use distances from Mash (min-hash algorithm) to make a NJ tree
-  Usage: $0 *.fastq.gz *.fasta > tree.dnd
-  NOTE: fasta files are read as assembly files; fastq files
-        are read as raw reads. Fastq file can be gzipped.
+  Usage: $0 [options] *.fastq *.fasta *.gbk > tree.dnd
+  NOTE: fastq files are read as raw reads;
+        fasta, gbk, and embl files are read as assemblies;
+        Input files can be gzipped.
   --tempdir                 If not specified, one will be made for you
                             and then deleted at the end of this script.
   --numcpus            1    This script uses Perl threads.
