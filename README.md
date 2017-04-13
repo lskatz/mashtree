@@ -15,15 +15,15 @@ For simple usage, see `mashtree.pl`.  For advanced options, look at `mashtree_wr
 ## Usage
 
     mashtree.pl: use distances from Mash (min-hash algorithm) to make a NJ tree
-      Usage: mashtree.pl *.fastq.gz *.fasta > tree.dnd
-      NOTE: fasta files are read as assembly files; fastq files
-            are read as raw reads. Fastq file can be gzipped.
+      Usage: mashtree.pl [options] *.fastq *.fasta *.gbk > tree.dnd
+      NOTE: fastq files are read as raw reads;
+            fasta, gbk, and embl files are read as assemblies;
+            Input files can be gzipped.
       --tempdir                 If not specified, one will be made for you
                                 and then deleted at the end of this script.
       --numcpus            1    This script uses Perl threads.
       --outmatrix          ''   If specified, will write a distance matrix
                                 in tab-delimited format
-
 
       TREE OPTIONS
       --truncLength        250  How many characters to keep in a filename
