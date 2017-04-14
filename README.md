@@ -7,6 +7,12 @@ For simple usage, see `mashtree.pl`.  For advanced options, look at `mashtree_wr
 
     mashtree.pl --numcpus 12 *.fastq.gz [*.fasta] > mashtree.dnd
 
+*Note*: fastq files are interpreted as raw read files. Fasta,
+GenBank, and EMBL files are interpreted as genome
+assemblies.
+*Note*: Compressed files are also accepted of any of the
+above file types.  You can compress with gz, bz2, or zip.
+
 ### Advanced
 
     mashtree_wrapper.pl --reps 100 -- --numcpus 12 *.fastq.gz > mashtree.dnd
@@ -46,10 +52,11 @@ Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 ## Requirements
 
 * Mash >= v1.1
+* SQLite3
 * Perl 
   * multithreading 
   * BioPerl library
-* SQLite3
+  * `DBD::SQLite`
 
 ## Installation
 

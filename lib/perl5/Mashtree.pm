@@ -24,7 +24,8 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $MASHTREE_VERSION="0.11";
+our $VERSION = "0.11";
+our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fa);
 our @bamExt=qw(.sorted.bam .bam);

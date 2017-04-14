@@ -5,9 +5,9 @@ env: PERL_CPANM_OPT="--notest --force --skip-satisfied"
 before_install:
   - sudo apt-get update
   - sudo apt-get install sqlite3 libsqlite3-dev
-  - "yes no | cpanm --force --notest Bio::Perl"
-  - make perl-modules
   # bootstrap modules needed to manipulate dist
+  - "yes no | cpanm --force --notest Bio::Perl"
+  - cpanm -v -L . DBD::SQLite
 #  - "cpanm Bio::Tree::DistanceFactory"
 #  - "cpanm Bio::Matrix::IO"
 #  - "cpanm Bio::Tree::Statistics"
