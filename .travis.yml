@@ -1,3 +1,12 @@
 language: perl
 perl:
   - "5.18-shrplib"
+env: PERL_CPANM_OPT="--notest --force --skip-satisfied"
+before_install:
+  # bootstrap modules needed to manipulate dist
+  - "yes no | cpanm --force --notest Bio::Perl"
+  - "cpanm Bio::Tree::DistanceFactory"
+  - "cpanm Bio::Matrix::IO"
+  - "cpanm Bio::Tree::Statistics"
+  - "cpanm DBD::SQLite"
+
