@@ -63,12 +63,16 @@ Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 After downloading the latest release, go into the directory and run `make`
 
     $ cd mashtree
-    $ make
+    $ perl Makefile.PL 
+    $ make test
 
-You can also check whether the prerequisite software has been installed by running `make check`.
+Add `mashtree/bin` to `PATH` and you're good to go!
 
 ## References
 
 *  Mash: http://mash.readthedocs.io
 *  BioPerl: http://bioperl.org
 
+## GitHub stickers for Mashtree
+
+[![Build Status](https://travis-ci.org/lskatz/mashtree.svg?branch=master)](https://travis-ci.org/lskatz/mashtree)
