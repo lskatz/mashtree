@@ -1,9 +1,7 @@
 language: perl
 perl:
   - "5.18-shrplib"
-env: 
-  - PERL_CPANM_OPT="--notest --force --skip-satisfied"
-  - PATH=$PATH:./mash-Linux64-v1.1.1
+env: PERL_CPANM_OPT="--notest --force --skip-satisfied"
 before_install:
   - sudo apt-get update
   - sudo apt-get install sqlite3 libsqlite3-dev
@@ -16,4 +14,5 @@ before_install:
 #  - "cpanm Bio::Matrix::IO"
 #  - "cpanm Bio::Tree::Statistics"
 #  - "cpanm DBD::SQLite"
-
+before_script:
+  - PATH=$PATH:./mash-Linux64-v1.1.1
