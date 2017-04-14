@@ -5,3 +5,13 @@ lib/perl5/Mashtree.pm
 lib/perl5/Mashtree/Db.pm
 Makefile.PL
 README.md
+t/01_basic.t
+t/data/CFSAN000211.gbk.gz
+t/data/CFSAN000189.gbk.gz
+t/data/CFSAN000189.ref.fasta.gz
+t/data/CFSAN001115.ref.fasta.bz2
+t/data/CFSAN001140_1.fastq.gz
+t/data/CFSAN000968.ref.fasta.gz
+t/data/CFSAN001112.ref.fasta.gz
+t/data/CFSAN000191.ref.fasta.gz
+t/data/CFSAN000961.gbk.gz
