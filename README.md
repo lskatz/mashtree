@@ -7,10 +7,11 @@ For simple usage, see `mashtree.pl`.  For advanced options, look at `mashtree_wr
 
     mashtree.pl --numcpus 12 *.fastq.gz [*.fasta] > mashtree.dnd
 
-*Note*: fastq files are interpreted as raw read files. Fasta,
+**Note**: fastq files are interpreted as raw read files. Fasta,
 GenBank, and EMBL files are interpreted as genome
 assemblies.
-*Note*: Compressed files are also accepted of any of the
+
+**Note**: Compressed files are also accepted of any of the
 above file types.  You can compress with gz, bz2, or zip.
 
 ### Advanced
