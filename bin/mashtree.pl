@@ -14,7 +14,6 @@ use POSIX qw/floor/;
 use List::Util qw/min max/;
 
 use threads;
-use Thread::Queue;
 use threads::shared;
 
 use FindBin;
@@ -109,15 +108,31 @@ sub main{
 sub sketchAll{
   my($reads,$sketchDir,$settings)=@_;
 
-  mkdir $sketchDir;
+  mkdir $sketchDir if(!-d $sketchDir);
 
-  my $readsQ=Thread::Queue->new(@$reads);
+  # Make an array of genomes that would distribute well
+  # across threads.  For example, don't put all raw-read
+  # genomes into a single thread and all the assemblies
+  # into another.
+  my %filesize=();
+  for(@$reads){
+    $filesize{$_} = -s $_;
+  }
+  my @sortedReads=sort {$filesize{$a} <=> $filesize{$b}} @$reads;
+  my @threadArr=();
+  for(my $i=0; $i<@sortedReads; $i++){
+    # Since each genome is sorted smallest to leargest,
+    # they can be sent round-robin to each thread to 
+    # ensure balance.
+    my $threadIndex = $i % $$settings{numcpus};
+    push(@{ $threadArr[$threadIndex] }, $sortedReads[$i]);
+  }
+
+  # Initiate the threads
   my @thr;
   for(0..$$settings{numthreads}-1){
-    $thr[$_]=threads->new(\&mashSketch,$sketchDir,$readsQ,$settings);
+    $thr[$_]=threads->new(\&mashSketch,$sketchDir,$threadArr[$_],$settings);
   }
-  
-  $readsQ->enqueue(undef) for(@thr);
 
   my @mshList;
   for(@thr){
@@ -132,7 +147,7 @@ sub sketchAll{
 
 # Individual mash sketch
 sub mashSketch{
-  my($sketchDir,$Q,$settings)=@_;
+  my($sketchDir,$genomeArr,$settings)=@_;
 
   # If any file needs to be converted, it will end up in
   # this directory.
@@ -140,7 +155,7 @@ sub mashSketch{
 
   my @msh;
   # $fastq is a misnomer: it could be any kind of accepted sequence file
-  while(defined(my $fastq=$Q->dequeue)){
+  for my $fastq(@$genomeArr){
     my($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt);
 
     # Unzip the file. This temporary file will
@@ -236,13 +251,20 @@ sub mashDistance{
   my $mashtreeDbFilename="$outdir/distances.sqlite";
   my $mashtreeDb=Mashtree::Db->new($mashtreeDbFilename);
 
-  my $mshQueue=Thread::Queue->new(@$mshList);
-  my @thr;
-  for(0..$$settings{numthreads}-1){
-    $thr[$_]=threads->new(\&mashDist,$outdir,$mshQueue,$mshListFilename,$mashtreeDbFilename,$settings);
+  # Make an array of distance files for each thread.
+  # Because distance files take about the same amount
+  # of time to analyze, there is no need to sort.
+  my @threadArr=();
+  for(my $i=0; $i<@$mshList; $i++){
+    my $threadIndex = $i % $$settings{numcpus};
+    push(@{ $threadArr[$threadIndex] }, $$mshList[$i]);
   }
 
-  $mshQueue->enqueue(undef) for(@thr);
+  # Initialize the threads
+  my @thr;
+  for(0..$$settings{numthreads}-1){
+    $thr[$_]=threads->new(\&mashDist,$outdir,$threadArr[$_],$mshListFilename,$mashtreeDbFilename,$settings);
+  }
 
   logmsg "Joining $$settings{numthreads} threads";
   for(@thr){
@@ -268,14 +290,14 @@ sub mashDistance{
 
 # Individual mash distance
 sub mashDist{
-  my($outdir,$mshQueue,$mshList,$mashtreeDbFilename,$settings)=@_;
+  my($outdir,$mshArr,$mshList,$mashtreeDbFilename,$settings)=@_;
 
   # One distance file for all queries in this thread
   my($distFileFh,$distFile)=tempfile("mashdistXXXXXX", SUFFIX=>".tsv", DIR=>$outdir);
 
   my $numQueries=0;
   my $mashtreeDb=Mashtree::Db->new($mashtreeDbFilename);
-  while(defined(my $msh=$mshQueue->dequeue)){
+  for my $msh(@$mshArr){
     #my $outfile="$outdir/".basename($msh).".tsv";
     logmsg "Distances for $msh";
     system("mash dist -t $msh -l $mshList >> $distFile");
