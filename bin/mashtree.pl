@@ -35,7 +35,7 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i)) or die $!;
+  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -53,6 +53,10 @@ sub main{
   }
 
   die usage() if($$settings{help});
+  if($$settings{version}){
+    print "Mashtree version $MASHTREE_VERSION\n";
+    return 0;
+  }
 
   # "reads" are either fasta assemblies or fastq reads
   my @reads=@ARGV;
@@ -75,6 +79,18 @@ sub main{
 
   logmsg "Temporary directory will be $$settings{tempdir}";
   logmsg "$0 on ".scalar(@reads)." files";
+
+  my %seen;
+  my @tmp;
+  for my $reads(@ARGV){
+    my $basename=basename($reads);
+    if($seen{$basename}++){
+      logmsg "Skipping $reads: already seen $basename";
+      next;
+    }
+    push(@tmp,$reads);
+  }
+  @reads=@tmp;
 
   my $sketches=sketchAll(\@reads,"$$settings{tempdir}",$settings);
 
@@ -329,6 +345,7 @@ sub usage{
   --numcpus            1    This script uses Perl threads.
   --outmatrix          ''   If specified, will write a distance matrix
                             in tab-delimited format
+  --version                 Display the version and exit
 
   TREE OPTIONS
   --truncLength        250  How many characters to keep in a filename
@@ -343,8 +360,6 @@ sub usage{
                             to discard lower-abundance kmers.
   --kmerlength         21
   --sketch-size        10000
-
-  Mashtree version $MASHTREE_VERSION
   "
 }
 
