@@ -18,7 +18,7 @@ use threads::shared;
 
 use FindBin;
 use lib "$FindBin::RealBin/../lib/perl5";
-use Mashtree qw/logmsg @fastqExt @fastaExt @richseqExt _truncateFilename distancesToPhylip createTreeFromPhylip $MASHTREE_VERSION/;
+use Mashtree qw/logmsg @fastqExt @fastaExt @richseqExt _truncateFilename createTreeFromPhylip $MASHTREE_VERSION/;
 use Mashtree::Db;
 use Bio::Tree::DistanceFactory;
 use Bio::Matrix::IO;
@@ -93,7 +93,7 @@ sub main{
 
   my $sketches=sketchAll(\@reads,"$$settings{tempdir}",$settings);
 
-  my $phylip = mashDistance($sketches,$$settings{tempdir},$settings);
+  my $phylip = mashDistance($sketches,\@reads,$$settings{tempdir},$settings);
 
   logmsg "Creating a NJ tree with BioPerl";
   my $treeObj = createTreeFromPhylip($phylip,$$settings{tempdir},$settings);
@@ -212,7 +212,6 @@ sub mashSketch{
       logmsg "WARNING: I could not understand what kind of file this is by its extension ($fileExt): $fastq";
     }
       
-    logmsg "Sketching $fastq";
     my $outPrefix="$sketchDir/".basename($fastq);
 
     # See if the user already mashed this file locally
@@ -222,10 +221,11 @@ sub mashSketch{
     }
 
     if(-e "$outPrefix.msh"){
-      logmsg "WARNING: ".basename($fastq)." was already mashed. You need unique filenames for this script. This file will be skipped: $fastq";
+      logmsg "WARNING: ".basename($fastq)." was already mashed.";
     } elsif(-s $fastq < 1){
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
     } else {
+      logmsg "Sketching $fastq";
       system("mash sketch -p $$settings{cpus_per_mash} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2");
       die if $?;
     }
@@ -238,7 +238,7 @@ sub mashSketch{
 
 # Parallelized mash distance
 sub mashDistance{
-  my($mshList,$outdir,$settings)=@_;
+  my($mshList,$reads,$outdir,$settings)=@_;
 
   # Make a temporary file with one line per mash file.
   # Helps with not running into the max number of command line args.
@@ -274,13 +274,13 @@ sub mashDistance{
   my $phylip = "$outdir/distances.phylip";
   logmsg "Converting to phylip format into $phylip";
   open(my $phylipFh, ">", $phylip) or die "ERROR: could not write to $phylip: $!";
-  print $phylipFh $mashtreeDb->toString("phylip");
+  print $phylipFh $mashtreeDb->toString($reads,"phylip");
   close $phylipFh;
 
   if($$settings{outmatrix}){
     logmsg "Writing a distance matrix to $$settings{outmatrix}";
     open(my $matrixFh, ">", $$settings{outmatrix}) or die "ERROR: could not write to $$settings{outmatrix}: $!";
-    print $matrixFh $mashtreeDb->toString("matrix");
+    print $matrixFh $mashtreeDb->toString($reads,"matrix");
     close $matrixFh;
   }
   

@@ -184,27 +184,27 @@ sub findDistance{
 #   abc
 #   rand
 sub toString{
-  my($self,$format,$sortBy)=@_;
+  my($self,$genome,$format,$sortBy)=@_;
   $format//="tsv";
   $format=lc($format);
   $sortBy//="abc";
   $sortBy=lc($sortBy);
   
   if($format eq "tsv"){
-    return $self->toString_tsv($sortBy);
+    return $self->toString_tsv($genome,$sortBy);
   } elsif($format eq "matrix"){
-    return $self->toString_matrix($sortBy);
+    return $self->toString_matrix($genome,$sortBy);
   } elsif($format eq "phylip"){
-    return $self->toString_phylip($sortBy);
+    return $self->toString_phylip($genome,$sortBy);
   }
 
   die "ERROR: could not format ".ref($self)." as $format.";
 }
 
 sub toString_matrix{
-  my($self,$sortBy)=@_;
+  my($self,$genome,$sortBy)=@_;
 
-  my %distance=$self->toString_tsv($sortBy);
+  my %distance=$self->toString_tsv($genome,$sortBy);
   my @name=keys(%distance);
   my $numNames=@name;
 
@@ -221,7 +221,7 @@ sub toString_matrix{
 }
 
 sub toString_tsv{
-  my($self,$sortBy)=@_;
+  my($self,$genome,$sortBy)=@_;
   my $dbh=$self->{dbh};
 
   my $str="";
@@ -230,6 +230,14 @@ sub toString_tsv{
     SELECT GENOME1,GENOME2,DISTANCE
     FROM DISTANCE
   );
+  if(@$genome){
+    $sql.="WHERE \n";
+    for(@$genome){
+      $sql.="GENOME1 LIKE '$_%' OR \n";
+    }
+    $sql=~s/\s*OR\s*$//;
+    $sql.="\n";
+  }
   if($sortBy eq 'abc'){
     $sql.="ORDER BY GENOME1,GENOME2 ASC";
   } elsif($sortBy eq 'rand'){
@@ -253,7 +261,7 @@ sub toString_tsv{
 }
 
 sub toString_phylip{
-  my($self,$sortBy)=@_;
+  my($self,$genome,$sortBy)=@_;
   my $dbh=$self->{dbh};
 
   my $str="";
@@ -261,11 +269,20 @@ sub toString_phylip{
   # The way phylip is, I need to know the genome names
   # a priori
   my @name;
-  my $sth=$dbh->prepare(qq(
+  my $sql=qq(
     SELECT DISTINCT(GENOME1) 
     FROM DISTANCE 
-    ORDER BY GENOME1 ASC
-  ));
+  );
+  if(@$genome){
+    $sql.="WHERE \n";
+    for(@$genome){
+      $sql.="GENOME1 LIKE '$_%' OR \n";
+    }
+    $sql=~s/\s*OR\s*$//;
+    $sql.="\n";
+  }
+  $sql.="ORDER BY GENOME1 ASC\n";
+  my $sth=$dbh->prepare($sql);
   my $rv=$sth->execute or die $DBI::errstr;
   if($rv < 0){
     die $DBI::errstr;
