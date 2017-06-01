@@ -269,28 +269,31 @@ sub mashDistance{
 # Individual mash distance
 sub mashDist{
   my($outdir,$mshQueue,$mshList,$mashtreeDbFilename,$settings)=@_;
-  my @distFile;
 
+  # One distance file for all queries in this thread
+  my($distFileFh,$distFile)=tempfile("mashdistXXXXXX", SUFFIX=>".tsv", DIR=>$outdir);
+
+  my $numQueries=0;
   my $mashtreeDb=Mashtree::Db->new($mashtreeDbFilename);
   while(defined(my $msh=$mshQueue->dequeue)){
-    my $outfile="$outdir/".basename($msh).".tsv";
+    #my $outfile="$outdir/".basename($msh).".tsv";
     logmsg "Distances for $msh";
-    system("mash dist -t $msh -l $mshList > $outfile");
+    system("mash dist -t $msh -l $mshList >> $distFile");
     die "ERROR with 'mash dist -t $msh -l $mshList'" if $?;
-
-    push(@distFile,$outfile);
+    $numQueries++;
   }
 
-  # Disconnect right away, before the lock, if no records
-  # are going to be inserted into the database
-  if(@distFile < 1){
-    $mashtreeDb->disconnect();
+  # If there is anything to add to the database, lock
+  # the database.  Only lock it once per thread, optimally.
+  if($numQueries > 0){
+    lock($dbhLock);
+    $mashtreeDb->addDistances($distFile);
   }
 
-  lock($dbhLock);
-  for my $dist(@distFile){
-    $mashtreeDb->addDistances($dist);
-  }
+  # I think that the thread disconnects the db when
+  # this sub ends but I wanted to do it directly and
+  # in a readable fashion.
+  $mashtreeDb->disconnect();
 }
 
 sub determineMinimumDepth{
