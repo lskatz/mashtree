@@ -31,6 +31,7 @@ above file types.  You can compress with gz, bz2, or zip.
       --numcpus            1    This script uses Perl threads.
       --outmatrix          ''   If specified, will write a distance matrix
                                 in tab-delimited format
+      --version                 Display the version and exit
 
       TREE OPTIONS
       --truncLength        250  How many characters to keep in a filename
