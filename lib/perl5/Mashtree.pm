@@ -89,12 +89,13 @@ sub openFastq{
 sub _truncateFilename{
   my($file,$settings)=@_;
   $$settings{truncLength}||=255;
-  my $name=basename($file,@fastqExt,@richseqExt,@fastaExt,'.msh');
-  # Strip off up to five more extensions
-  for(1..5){
-    $name=basename($name,@fastqExt,@richseqExt,@fastaExt,'.msh');
-  }
+  # strip off msh and get the basename
+  my $name=basename($file,'.msh');
+  # One more extension
+  $name=basename($name,@fastqExt,@richseqExt,@fastaExt);
+  # Truncate
   $name=substr($name,0,$$settings{truncLength}); 
+  # Add in padding
   $name.=" " x ($$settings{truncLength}-length($name)); 
   return $name;
 }
