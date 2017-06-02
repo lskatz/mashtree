@@ -62,6 +62,8 @@ Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 
 ## Installation
 
+### Installation from Git
+
 After downloading the latest release, go into the directory and run `make`
 
     $ cd mashtree
@@ -69,6 +71,12 @@ After downloading the latest release, go into the directory and run `make`
     $ make test
 
 Add `mashtree/bin` to `PATH` and you're good to go!
+
+### Installation from CPAN
+
+I'm working on this but it is incomplete.
+
+    $ cpanm -L ~ Mashtree
 
 ## References
 
