@@ -165,17 +165,21 @@ sub mashSketch{
     if($fastq=~/\.gz$/i){
       system("gzip  -cd $fastq > $unzipped");
       die "ERROR with gzip  -cd $fastq" if $?;
-      $fastq=$unzipped;
     } elsif($fastq=~/\.bz2?$/i){
       system("bzip2 -cd $fastq > $unzipped");
       die "ERROR with bzip2 -cd $fastq" if $?;
-      $fastq=$unzipped;
     } elsif($fastq=~/\.zip$/i){
       system("unzip -p  $fastq > $unzipped");
       die "ERROR with unzip -p  $fastq" if $?;
-      $fastq=$unzipped;
     }
 
+    # If the fastq filename is not the same as the unzipped
+    # filename, then presumably it is unzipped and the 
+    # filename needs to be updated.
+    if($fastq ne $unzipped){
+      $fastq=$unzipped;
+      ($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt);
+    }
 
     # If we see a richseq (e.g., gbk or embl), then convert it to fasta
     # TODO If Mash itself accepts richseq, then consider
