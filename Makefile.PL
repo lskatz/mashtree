@@ -10,17 +10,16 @@ WriteMakefile
   VERSION_FROM => 'lib/perl5/Mashtree.pm',
   PREREQ_PM    => {
     # Core modules
-    'File::Basename' => 1,
-    'Data::Dumper'   => 1,
-    'List::Util'     => 1,
-    'Exporter'       => 1,
+    'File::Basename' => 0,
+    'Data::Dumper'   => 0,
+    'List::Util'     => 0,
+    'Exporter'       => 0,
     # Threads modules
-    'threads'        => 1,
-    'threads::shared'=> 1,
-    'Thread::Queue'  => 1,
+    'threads'        => 0,
+    'threads::shared'=> 0,
+    'Thread::Queue'  => 0,
     # Not core (I think?)
-    'DBI'            => 1,
-    'DBD::SQLite'    => 0,
+    'DBI'            => 0,
     'Bio::Matrix::IO'=> 0,
     'Bio::Tree::DistanceFactory'=> 0,
     'Bio::Tree::Statistics'=> 0,
