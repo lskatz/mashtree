@@ -162,21 +162,22 @@ sub mashSketch{
     # only exist if the correct extensions are detected.
     my $unzipped="$tempdir/".basename($fastq);
     $unzipped=~s/\.(gz|bz2?|zip)$//i;
+    my $was_unzipped=0;
     if($fastq=~/\.gz$/i){
       system("gzip  -cd $fastq > $unzipped");
       die "ERROR with gzip  -cd $fastq" if $?;
+      $was_unzipped=1;
     } elsif($fastq=~/\.bz2?$/i){
       system("bzip2 -cd $fastq > $unzipped");
       die "ERROR with bzip2 -cd $fastq" if $?;
+      $was_unzipped=1;
     } elsif($fastq=~/\.zip$/i){
       system("unzip -p  $fastq > $unzipped");
       die "ERROR with unzip -p  $fastq" if $?;
+      $was_unzipped=1;
     }
 
-    # If the fastq filename is not the same as the unzipped
-    # filename, then presumably it is unzipped and the 
-    # filename needs to be updated.
-    if($fastq ne $unzipped){
+    if($was_unzipped){
       $fastq=$unzipped;
       ($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt);
     }
