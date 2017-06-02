@@ -244,11 +244,18 @@ sub mashSketch{
 sub mashDistance{
   my($mshList,$reads,$outdir,$settings)=@_;
 
+  # Make a list of names that will appear in the database
+  # in exactly the right format.
+  my @genomeName;
+
   # Make a temporary file with one line per mash file.
   # Helps with not running into the max number of command line args.
   my $mshListFilename="$outdir/mshList.txt";
   open(my $mshListFh,">",$mshListFilename) or die "ERROR: could not write to $mshListFilename: $!";
-  print $mshListFh $_."\n" for(@$mshList);
+  for(@$mshList){
+    print $mshListFh $_."\n";
+    push(@genomeName,_truncateFilename($_,$settings));
+  }
   close $mshListFh;
 
   # Instatiate the database and create the table before the threads get to it
@@ -278,13 +285,13 @@ sub mashDistance{
   my $phylip = "$outdir/distances.phylip";
   logmsg "Converting to phylip format into $phylip";
   open(my $phylipFh, ">", $phylip) or die "ERROR: could not write to $phylip: $!";
-  print $phylipFh $mashtreeDb->toString($reads,"phylip");
+  print $phylipFh $mashtreeDb->toString(\@genomeName,"phylip");
   close $phylipFh;
 
   if($$settings{outmatrix}){
     logmsg "Writing a distance matrix to $$settings{outmatrix}";
     open(my $matrixFh, ">", $$settings{outmatrix}) or die "ERROR: could not write to $$settings{outmatrix}: $!";
-    print $matrixFh $mashtreeDb->toString($reads,"matrix");
+    print $matrixFh $mashtreeDb->toString(\@genomeName,"matrix");
     close $matrixFh;
   }
   
