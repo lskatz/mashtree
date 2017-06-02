@@ -24,7 +24,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "0.14";
+our $VERSION = "0.15";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fa);
@@ -89,8 +89,13 @@ sub openFastq{
 sub _truncateFilename{
   my($file,$settings)=@_;
   $$settings{truncLength}||=255;
-  my $name=basename($file,@fastqExt);
+  # strip off msh and get the basename
+  my $name=basename($file,'.msh');
+  # One more extension
+  $name=basename($name,@fastqExt,@richseqExt,@fastaExt);
+  # Truncate
   $name=substr($name,0,$$settings{truncLength}); 
+  # Add in padding
   $name.=" " x ($$settings{truncLength}-length($name)); 
   return $name;
 }

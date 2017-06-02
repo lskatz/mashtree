@@ -14,12 +14,11 @@ use POSIX qw/floor/;
 use List::Util qw/min max/;
 
 use threads;
-use Thread::Queue;
 use threads::shared;
 
 use FindBin;
 use lib "$FindBin::RealBin/../lib/perl5";
-use Mashtree qw/logmsg @fastqExt @fastaExt @richseqExt _truncateFilename distancesToPhylip createTreeFromPhylip $MASHTREE_VERSION/;
+use Mashtree qw/logmsg @fastqExt @fastaExt @richseqExt _truncateFilename createTreeFromPhylip $MASHTREE_VERSION/;
 use Mashtree::Db;
 use Bio::Tree::DistanceFactory;
 use Bio::Matrix::IO;
@@ -94,7 +93,7 @@ sub main{
 
   my $sketches=sketchAll(\@reads,"$$settings{tempdir}",$settings);
 
-  my $phylip = mashDistance($sketches,$$settings{tempdir},$settings);
+  my $phylip = mashDistance($sketches,\@reads,$$settings{tempdir},$settings);
 
   logmsg "Creating a NJ tree with BioPerl";
   my $treeObj = createTreeFromPhylip($phylip,$$settings{tempdir},$settings);
@@ -109,15 +108,31 @@ sub main{
 sub sketchAll{
   my($reads,$sketchDir,$settings)=@_;
 
-  mkdir $sketchDir;
+  mkdir $sketchDir if(!-d $sketchDir);
 
-  my $readsQ=Thread::Queue->new(@$reads);
+  # Make an array of genomes that would distribute well
+  # across threads.  For example, don't put all raw-read
+  # genomes into a single thread and all the assemblies
+  # into another.
+  my %filesize=();
+  for(@$reads){
+    $filesize{$_} = -s $_;
+  }
+  my @sortedReads=sort {$filesize{$a} <=> $filesize{$b}} @$reads;
+  my @threadArr=();
+  for(my $i=0; $i<@sortedReads; $i++){
+    # Since each genome is sorted smallest to leargest,
+    # they can be sent round-robin to each thread to 
+    # ensure balance.
+    my $threadIndex = $i % $$settings{numcpus};
+    push(@{ $threadArr[$threadIndex] }, $sortedReads[$i]);
+  }
+
+  # Initiate the threads
   my @thr;
   for(0..$$settings{numthreads}-1){
-    $thr[$_]=threads->new(\&mashSketch,$sketchDir,$readsQ,$settings);
+    $thr[$_]=threads->new(\&mashSketch,$sketchDir,$threadArr[$_],$settings);
   }
-  
-  $readsQ->enqueue(undef) for(@thr);
 
   my @mshList;
   for(@thr){
@@ -132,7 +147,7 @@ sub sketchAll{
 
 # Individual mash sketch
 sub mashSketch{
-  my($sketchDir,$Q,$settings)=@_;
+  my($sketchDir,$genomeArr,$settings)=@_;
 
   # If any file needs to be converted, it will end up in
   # this directory.
@@ -140,27 +155,32 @@ sub mashSketch{
 
   my @msh;
   # $fastq is a misnomer: it could be any kind of accepted sequence file
-  while(defined(my $fastq=$Q->dequeue)){
+  for my $fastq(@$genomeArr){
     my($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt);
 
     # Unzip the file. This temporary file will
     # only exist if the correct extensions are detected.
     my $unzipped="$tempdir/".basename($fastq);
     $unzipped=~s/\.(gz|bz2?|zip)$//i;
+    my $was_unzipped=0;
     if($fastq=~/\.gz$/i){
       system("gzip  -cd $fastq > $unzipped");
       die "ERROR with gzip  -cd $fastq" if $?;
-      $fastq=$unzipped;
+      $was_unzipped=1;
     } elsif($fastq=~/\.bz2?$/i){
       system("bzip2 -cd $fastq > $unzipped");
       die "ERROR with bzip2 -cd $fastq" if $?;
-      $fastq=$unzipped;
+      $was_unzipped=1;
     } elsif($fastq=~/\.zip$/i){
       system("unzip -p  $fastq > $unzipped");
       die "ERROR with unzip -p  $fastq" if $?;
-      $fastq=$unzipped;
+      $was_unzipped=1;
     }
 
+    if($was_unzipped){
+      $fastq=$unzipped;
+      ($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt);
+    }
 
     # If we see a richseq (e.g., gbk or embl), then convert it to fasta
     # TODO If Mash itself accepts richseq, then consider
@@ -197,7 +217,6 @@ sub mashSketch{
       logmsg "WARNING: I could not understand what kind of file this is by its extension ($fileExt): $fastq";
     }
       
-    logmsg "Sketching $fastq";
     my $outPrefix="$sketchDir/".basename($fastq);
 
     # See if the user already mashed this file locally
@@ -207,10 +226,11 @@ sub mashSketch{
     }
 
     if(-e "$outPrefix.msh"){
-      logmsg "WARNING: ".basename($fastq)." was already mashed. You need unique filenames for this script. This file will be skipped: $fastq";
+      logmsg "WARNING: ".basename($fastq)." was already mashed.";
     } elsif(-s $fastq < 1){
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
     } else {
+      logmsg "Sketching $fastq";
       system("mash sketch -p $$settings{cpus_per_mash} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2");
       die if $?;
     }
@@ -223,26 +243,40 @@ sub mashSketch{
 
 # Parallelized mash distance
 sub mashDistance{
-  my($mshList,$outdir,$settings)=@_;
+  my($mshList,$reads,$outdir,$settings)=@_;
+
+  # Make a list of names that will appear in the database
+  # in exactly the right format.
+  my @genomeName;
 
   # Make a temporary file with one line per mash file.
   # Helps with not running into the max number of command line args.
   my $mshListFilename="$outdir/mshList.txt";
   open(my $mshListFh,">",$mshListFilename) or die "ERROR: could not write to $mshListFilename: $!";
-  print $mshListFh $_."\n" for(@$mshList);
+  for(@$mshList){
+    print $mshListFh $_."\n";
+    push(@genomeName,_truncateFilename($_,$settings));
+  }
   close $mshListFh;
 
   # Instatiate the database and create the table before the threads get to it
   my $mashtreeDbFilename="$outdir/distances.sqlite";
   my $mashtreeDb=Mashtree::Db->new($mashtreeDbFilename);
 
-  my $mshQueue=Thread::Queue->new(@$mshList);
-  my @thr;
-  for(0..$$settings{numthreads}-1){
-    $thr[$_]=threads->new(\&mashDist,$outdir,$mshQueue,$mshListFilename,$mashtreeDbFilename,$settings);
+  # Make an array of distance files for each thread.
+  # Because distance files take about the same amount
+  # of time to analyze, there is no need to sort.
+  my @threadArr=();
+  for(my $i=0; $i<@$mshList; $i++){
+    my $threadIndex = $i % $$settings{numcpus};
+    push(@{ $threadArr[$threadIndex] }, $$mshList[$i]);
   }
 
-  $mshQueue->enqueue(undef) for(@thr);
+  # Initialize the threads
+  my @thr;
+  for(0..$$settings{numthreads}-1){
+    $thr[$_]=threads->new(\&mashDist,$outdir,$threadArr[$_],$mshListFilename,$mashtreeDbFilename,$settings);
+  }
 
   logmsg "Joining $$settings{numthreads} threads";
   for(@thr){
@@ -252,13 +286,13 @@ sub mashDistance{
   my $phylip = "$outdir/distances.phylip";
   logmsg "Converting to phylip format into $phylip";
   open(my $phylipFh, ">", $phylip) or die "ERROR: could not write to $phylip: $!";
-  print $phylipFh $mashtreeDb->toString("phylip");
+  print $phylipFh $mashtreeDb->toString(\@genomeName,"phylip");
   close $phylipFh;
 
   if($$settings{outmatrix}){
     logmsg "Writing a distance matrix to $$settings{outmatrix}";
     open(my $matrixFh, ">", $$settings{outmatrix}) or die "ERROR: could not write to $$settings{outmatrix}: $!";
-    print $matrixFh $mashtreeDb->toString("matrix");
+    print $matrixFh $mashtreeDb->toString(\@genomeName,"matrix");
     close $matrixFh;
   }
   
@@ -268,14 +302,14 @@ sub mashDistance{
 
 # Individual mash distance
 sub mashDist{
-  my($outdir,$mshQueue,$mshList,$mashtreeDbFilename,$settings)=@_;
+  my($outdir,$mshArr,$mshList,$mashtreeDbFilename,$settings)=@_;
 
   # One distance file for all queries in this thread
   my($distFileFh,$distFile)=tempfile("mashdistXXXXXX", SUFFIX=>".tsv", DIR=>$outdir);
 
   my $numQueries=0;
   my $mashtreeDb=Mashtree::Db->new($mashtreeDbFilename);
-  while(defined(my $msh=$mshQueue->dequeue)){
+  for my $msh(@$mshArr){
     #my $outfile="$outdir/".basename($msh).".tsv";
     logmsg "Distances for $msh";
     system("mash dist -t $msh -l $mshList >> $distFile");
