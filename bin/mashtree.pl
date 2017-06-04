@@ -53,7 +53,7 @@ sub main{
 
   die usage() if($$settings{help});
   if($$settings{version}){
-    print "Mashtree version $MASHTREE_VERSION\n";
+    print "Mashtree $MASHTREE_VERSION\n";
     return 0;
   }
 
