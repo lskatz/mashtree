@@ -74,9 +74,25 @@ Add `mashtree/bin` to `PATH` and you're good to go!
 
 ### Installation from CPAN
 
-I'm working on this but it is incomplete.
+Installing from CPAN installs the latest stable version of Mashtree.  This method _should_ add the Mashtree perl modules to the correct place in your home directory and _should_ add the executables to your local bin directory.  However, I am new to CPAN, so please give me feedback via the issues tab if this is not correct.
 
     $ cpanm -L ~ Mashtree
+    $ export PERL5LIB=$PERL5LIB:$HOME/lib/perl5
+    $ mashtree.pl --help # verify it shows usage and not an error
+
+### Alternate method of installing from CPAN
+
+    $ cpan # initiates the CPAN command line prompt
+    cpan[1]> install Mashtree
+    cpan[2]> exit
+    $ export PERL5LIB=$PERL5LIB:$HOME/lib/perl5
+    $ mashtree.pl --help # verify it shows usage and not an error
+
+### Uninstallation from CPAN
+
+I'm not sure _why_ you'd want to uninstall Mashtree but here is how you would clean it up.
+
+    $ cpanm --uninstall Mashtree --local-lib=$HOME
 
 ## References
 
