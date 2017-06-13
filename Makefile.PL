@@ -25,6 +25,7 @@ WriteMakefile
     'Thread::Queue'  => 0,
     # Not core (I think?)
     'DBI'            => 0,
+    'DBD::SQLite'    => 0,
     'Bio::Matrix::IO'=> 0,
     'Bio::Tree::DistanceFactory'=> 0,
     'Bio::Tree::Statistics'=> 0,
