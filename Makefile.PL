@@ -8,6 +8,11 @@ WriteMakefile
 (
   NAME         => 'Mashtree',
   VERSION_FROM => 'lib/perl5/Mashtree.pm',
+  EXE_FILES    => [
+    "bin/mashtree.pl",
+    "bin/mashtree_wrapper.pl",
+    "bin/min_abundance_finder.pl",
+  ],
   PREREQ_PM    => {
     # Core modules
     'File::Basename' => 0,
