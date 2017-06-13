@@ -7,7 +7,7 @@ use ExtUtils::MakeMaker;
 WriteMakefile
 (
   NAME         => 'Mashtree',
-  VERSION_FROM => 'lib/perl5/Mashtree.pm',
+  VERSION_FROM => 'lib/Mashtree.pm',
   EXE_FILES    => [
     "bin/mashtree.pl",
     "bin/mashtree_wrapper.pl",
