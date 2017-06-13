@@ -17,7 +17,7 @@ use Thread::Queue;
 use threads::shared;
 
 use FindBin;
-use lib "$FindBin::RealBin/../lib/perl5";
+use lib "$FindBin::RealBin/../lib";
 use Mashtree qw/logmsg @fastqExt @fastaExt createTreeFromPhylip/;
 use Mashtree::Db;
 use Bio::SeqIO;

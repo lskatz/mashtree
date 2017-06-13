@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use lib './lib/perl5';
+use lib './lib';
 use File::Basename qw/dirname/;
 
 use Test::More tests => 2;
