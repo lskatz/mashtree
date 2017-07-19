@@ -18,7 +18,7 @@ use threads::shared;
 
 use FindBin;
 use lib "$FindBin::RealBin/../lib";
-use Mashtree qw/logmsg @fastqExt @fastaExt @richseqExt _truncateFilename createTreeFromPhylip $MASHTREE_VERSION/;
+use Mashtree qw/logmsg @fastqExt @fastaExt @mshExt @richseqExt _truncateFilename createTreeFromPhylip $MASHTREE_VERSION/;
 use Mashtree::Db;
 use Bio::Tree::DistanceFactory;
 use Bio::Matrix::IO;
@@ -156,7 +156,7 @@ sub mashSketch{
   my @msh;
   # $fastq is a misnomer: it could be any kind of accepted sequence file
   for my $fastq(@$genomeArr){
-    my($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt);
+    my($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt,@mshExt);
 
     # Unzip the file. This temporary file will
     # only exist if the correct extensions are detected.
@@ -179,7 +179,7 @@ sub mashSketch{
 
     if($was_unzipped){
       $fastq=$unzipped;
-      ($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt);
+      ($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt,@mshExt);
     }
 
     # If we see a richseq (e.g., gbk or embl), then convert it to fasta
@@ -213,16 +213,22 @@ sub mashSketch{
       $sketchXopts.="-m $minDepth -g $$settings{genomesize} ";
     } elsif(grep {$_ eq $fileExt} @fastaExt) {
       $sketchXopts.=" ";
+    } elsif(grep {$_ eq $fileExt} @mshExt){
+      $sketchXopts.=" ";
     } else {
       logmsg "WARNING: I could not understand what kind of file this is by its extension ($fileExt): $fastq";
     }
       
-    my $outPrefix="$sketchDir/".basename($fastq);
+    my $outPrefix="$sketchDir/".basename($fastq, @mshExt);
 
     # See if the user already mashed this file locally
     if(-e "$fastq.msh"){
       logmsg "Found locally mashed file $fastq.msh. I will use it.";
       copy("$fastq.msh","$outPrefix.msh");
+    }
+    if(grep {$_ eq $fileExt} @mshExt){
+      logmsg "Input file is a sketch file itself and will be used as such: $fastq";
+      copy($fastq, "$outPrefix.msh");
     }
 
     if(-e "$outPrefix.msh"){

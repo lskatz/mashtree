@@ -15,7 +15,7 @@ use Bio::Matrix::IO;
 
 our @EXPORT_OK = qw(
            logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames
-           @fastqExt @fastaExt @bamExt @vcfExt @richseqExt
+           @fastqExt @fastaExt @bamExt @vcfExt @richseqExt @mshExt
            $MASHTREE_VERSION
          );
 
@@ -24,12 +24,13 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "0.20";
+our $VERSION = "0.21";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
-our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fa);
+our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
 our @bamExt=qw(.sorted.bam .bam);
 our @vcfExt=qw(.vcf.gz .vcf);
+our @mshExt=qw(.msh);
 # Richseq extensions were obtained mostly from bioperl under
 # the genbank, embl, and swissprot entries, under
 # the source for Bio::SeqIO
