@@ -151,7 +151,7 @@ sub mashSketch{
 
   # If any file needs to be converted, it will end up in
   # this directory.
-  my $tempdir=tempdir("$$settings{tempdir}/convertFasta.XXXXXX", CLEANUP=>1);
+  my $tempdir=tempdir("$$settings{tempdir}/convertSeq.XXXXXX", CLEANUP=>1);
 
   my @msh;
   # $fastq is a misnomer: it could be any kind of accepted sequence file
@@ -163,20 +163,24 @@ sub mashSketch{
     my $unzipped="$tempdir/".basename($fastq);
     $unzipped=~s/\.(gz|bz2?|zip)$//i;
     my $was_unzipped=0;
-    if($fastq=~/\.gz$/i){
-      system("gzip  -cd $fastq > $unzipped");
-      die "ERROR with gzip  -cd $fastq" if $?;
-      $was_unzipped=1;
-    } elsif($fastq=~/\.bz2?$/i){
-      system("bzip2 -cd $fastq > $unzipped");
-      die "ERROR with bzip2 -cd $fastq" if $?;
-      $was_unzipped=1;
-    } elsif($fastq=~/\.zip$/i){
-      system("unzip -p  $fastq > $unzipped");
-      die "ERROR with unzip -p  $fastq" if $?;
-      $was_unzipped=1;
+    # Don't bother unzipping if it's a fastq file b/c Mash can read those
+    if(!grep {$_ eq $fileExt} @fastqExt){
+      if($fastq=~/\.gz$/i){
+        system("gzip  -cd $fastq > $unzipped");
+        die "ERROR with gzip  -cd $fastq" if $?;
+        $was_unzipped=1;
+      } elsif($fastq=~/\.bz2?$/i){
+        system("bzip2 -cd $fastq > $unzipped");
+        die "ERROR with bzip2 -cd $fastq" if $?;
+        $was_unzipped=1;
+      } elsif($fastq=~/\.zip$/i){
+        system("unzip -p  $fastq > $unzipped");
+        die "ERROR with unzip -p  $fastq" if $?;
+        $was_unzipped=1;
+      }
     }
 
+    # If the file was uncompressed, parse the filename again.
     if($was_unzipped){
       $fastq=$unzipped;
       ($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt,@mshExt);
@@ -243,6 +247,8 @@ sub mashSketch{
 
     push(@msh,"$outPrefix.msh");
   }
+
+  system("rm -rf $tempdir");
 
   return \@msh;
 }
@@ -334,6 +340,8 @@ sub mashDist{
   # this sub ends but I wanted to do it directly and
   # in a readable fashion.
   $mashtreeDb->disconnect();
+  close($distFileFh);
+  unlink($distFile);
 }
 
 sub determineMinimumDepth{
