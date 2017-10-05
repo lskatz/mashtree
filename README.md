@@ -21,32 +21,34 @@ above file types.  You can compress with gz, bz2, or zip.
 
 ## Usage
 
-    mashtree.pl: use distances from Mash (min-hash algorithm) to make a NJ tree
-      Usage: mashtree.pl [options] *.fastq *.fasta *.gbk > tree.dnd
-      NOTE: fastq files are read as raw reads;
-            fasta, gbk, and embl files are read as assemblies;
-            Input files can be gzipped.
-      --tempdir                 If not specified, one will be made for you
-                                and then deleted at the end of this script.
-      --numcpus            1    This script uses Perl threads.
-      --outmatrix          ''   If specified, will write a distance matrix
-                                in tab-delimited format
-      --version                 Display the version and exit
+    Usage: mashtree.pl [options] *.fastq *.fasta *.gbk *.msh > tree.dnd
+    NOTE: fastq files are read as raw reads;
+          fasta, gbk, and embl files are read as assemblies;
+          Input files can be gzipped.
+    --tempdir            ''   If specified, this directory will not be
+                              removed at the end of the script and can
+                              be used to cache results for future
+                              analyses.
+                              If not specified, a dir will be made for you
+                              and then deleted at the end of this script.
+    --numcpus            1    This script uses Perl threads.
+    --outmatrix          ''   If specified, will write a distance matrix
+                              in tab-delimited format
+    --version                 Display the version and exit
 
-      TREE OPTIONS
-      --truncLength        250  How many characters to keep in a filename
-      --sort-order         ABC  For neighbor-joining, the sort order can
-                                make a difference. Options include:
-                                ABC (alphabetical), random, input-order
+    TREE OPTIONS
+    --truncLength        250  How many characters to keep in a filename
+    --sort-order         ABC  For neighbor-joining, the sort order can
+                              make a difference. Options include:
+                              ABC (alphabetical), random, input-order
 
-      MASH SKETCH OPTIONS
-      --genomesize         5000000
-      --mindepth           5    If mindepth is zero, then it will be
-                                chosen in a smart but slower method,
-                                to discard lower-abundance kmers.
-      --kmerlength         21
-      --sketch-size        10000
-
+    MASH SKETCH OPTIONS
+    --genomesize         5000000
+    --mindepth           5    If mindepth is zero, then it will be
+                              chosen in a smart but slower method,
+                              to discard lower-abundance kmers.
+    --kmerlength         21
+    --sketch-size        10000
 
 Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 `--help` for additional information.
