@@ -33,5 +33,15 @@ WriteMakefile
   BUILD_REQUIRES => {
     'Test::More'     => 0.47,
   },
+  META_MERGE => {
+    'meta-spec' => { version => 2 },
+    resources => {
+      repository => {
+        type => 'git',
+        url => 'git://github.com/lskatz/mashtree.git',
+        web => 'https://github.com/lskatz/mashtree',
+      },
+    },
+  },
 );
 
