@@ -5,7 +5,7 @@
 
 package Bio::Kmer;
 require 5.10.0;
-our $VERSION=0.19;
+our $VERSION=0.21;
 
 use strict;
 use warnings;
@@ -100,6 +100,9 @@ Create a new instance of the kmer counter.  One object per file.
                           than this, ignore the kmer. This 
                           might help speed analysis if you 
                           do not care about low-count kmers.
+  sample       1          Retain only a percentage of kmers.
+                          1 is 100%; 0 is 0%
+                          Only works with the perl kmer counter.
 
   Examples:
   my $kmer=Bio::Kmer->new("file.fastq.gz",{kmercounter=>"jellyfish",numcpus=>4});
@@ -119,6 +122,7 @@ sub new{
   $$settings{gt}          ||=1;
   $$settings{kmercounter} ||="perl";
   $$settings{tempdir}     ||=tempdir("Kmer.pm.XXXXXX",TMPDIR=>1,CLEANUP=>1);
+  $$settings{sample}        =1 if(!defined($$settings{sample}));
 
   # If the first parameter $seqfile is a Bio::SeqIO object,
   # then send it to a file to dovetail with the rest of
@@ -165,6 +169,7 @@ sub new{
     tempdir    =>$$settings{tempdir},
     gt         =>$$settings{gt},
     kmercounter=>$$settings{kmercounter},
+    sample     =>$$settings{sample},
 
     # Values that will be filled in after analysis
     _kmers     =>{},
@@ -335,7 +340,7 @@ sub countKmersPurePerl{
   my $seqQ=Thread::Queue->new;
   my @thr;
   for(0..$self->{numcpus}-1){
-    $thr[$_]=threads->new(\&_countKmersPurePerlWorker,$kmerlength,$seqQ);
+    $thr[$_]=threads->new(\&_countKmersPurePerlWorker,$kmerlength,$seqQ,$self->{sample});
   }
 
   # Pure perl to make this standalone... the only reason
@@ -398,6 +403,22 @@ sub countKmersPurePerl{
 
   return 1;
 }
+
+=pod
+
+=over
+
+=item $kmer->kmers
+
+Return actual kmers
+
+  Arguments: None
+  Returns:   Reference to a hash of kmers and their counts
+
+=back
+
+=cut
+
 
 sub kmers{
   my($self)=@_;
@@ -536,7 +557,7 @@ sub _checkCompatibility{
 }
 
 sub _countKmersPurePerlWorker{
-  my($kmerlength,$seqQ)=@_; 
+  my($kmerlength,$seqQ,$sample)=@_; 
 
   my %kmer;
   while(defined(my $seq=$seqQ->dequeue)){
@@ -546,6 +567,7 @@ sub _countKmersPurePerlWorker{
     # Count kmers in a sliding window.
     # We must keep this loop optimized for speed.
     for(my $j=0;$j<$numKmersInRead;$j++){
+      next if($sample < rand(1)); # subsample
       $kmer{substr($seq,$j,$kmerlength)}++;
     }
 
