@@ -19,6 +19,8 @@ use IO::Uncompress::Gunzip qw/gunzip/;
 use threads;
 use Thread::Queue;
 
+use Bio::Kmer;
+
 # http://perldoc.perl.org/perlop.html#Symbolic-Unary-Operators
 # +Inf and -Inf will be a binary complement of all zeros
 use constant MAXINT =>  ~0;
@@ -31,7 +33,7 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help kmerlength|kmer=i kmerCounter=s delta=i gt|greaterthan=i hist|histogram=s valleys! peaks! tempdir=s numcpus=i)) or die $!;
+  GetOptions($settings,qw(help kmerlength|kmer=i kmerCounter=s delta=i gt|greaterthan=i valleys! peaks! tempdir=s numcpus=i)) or die $!;
   $$settings{kmerlength} ||=21;
   $$settings{kmerCounter}||="";
   $$settings{delta}      ||=100;
@@ -46,19 +48,12 @@ sub main{
   die usage() if(!$fastq || $$settings{help});
   die "ERROR: I could not find fastq at $fastq" if(!-e $fastq);
 
-  # Find peaks and valleys, but use the histogram file if it exists
-  # and if the user specified it.
-  my $histogram=[];
-  if($$settings{hist} && -e $$settings{hist}){
-    # Read the cached histogram file
-    $histogram=readHistogram($$settings{hist},$settings);
-  } else {
-    $histogram=makeHistogram($fastq,$$settings{kmerlength},$settings);
-    # Count kmers and make a histogram.  kmerToHist()
-    # will optionally write the histogram file.
-    #my $kmercount=countKmers($fastq,$$settings{kmerlength},$settings);
-    #$histogram=kmerToHist($kmercount,$settings);
-  }
+  my $kmer=Bio::Kmer->new($fastq,{
+      numcpus       => $$settings{numcpus},
+      kmercounter   => "perl",
+  });
+  my $histogram=$kmer->histogram();
+
   # Find peaks and valleys using the simplified 
   # 'delta' algorithm.
   my $peaks=findThePeaksAndValleys($histogram,$$settings{delta},$settings);
@@ -98,259 +93,6 @@ sub readHistogram{
   # ensure defined values
   for(my $i=0;$i<@hist;$i++){
     $hist[$i] //= 0;
-  }
-
-  return \@hist;
-}
-
-sub makeHistogram{
-  my($fastq,$kmerlength,$settings)=@_;
-
-  if($$settings{kmerCounter} =~ /^\s*$/){
-    logmsg "Auto-detecting which kmer counter program to use.";
-    if(which("kmc") && which("kmc_tools")){
-      $$settings{kmerCounter}="kmc";
-    } elsif(which("jellyfish")){
-      $$settings{kmerCounter}="jellyfish";
-    } else {
-      $$settings{kmerCounter}="pureperl";
-    }
-  }
-
-  # try/catch kmer counting and if it fails, do the
-  # pure perl method.  Don't redo pure perl if
-  # it was already set up that way.
-  my $hist;
-  eval{
-    if($$settings{kmerCounter}=~ /(pure)?.*perl/i){
-      logmsg "Counting with pure perl";
-      my $kmerHash=countKmersPurePerl($fastq,$kmerlength,$settings);
-      $hist=kmerToHist($kmerHash,$settings);
-    } elsif($$settings{kmerCounter} =~ /^kmc$/i){
-      logmsg "Counting with KMC";
-      my $kmcFile=countKmersKmc($fastq,$kmerlength,$settings);
-      $hist=histogramKmc($kmcFile,$settings);
-    } elsif($$settings{kmerCounter} =~ /jellyfish/i){
-      logmsg "Counting with Jellyfish";
-      my $jfFile=countKmersJellyfish($fastq,$kmerlength,$settings);
-      $hist=histogramJellyfish($jfFile,$settings);
-    } else {
-      die "ERROR: I do not understand the kmer counter $$settings{kmerCounter}";
-    }
-  };
-
-  if($@){
-    if($$settings{kmerCounter}=~ /(pure)?.*perl/i){
-      die "ERROR counting kmers with pure perl";
-    }
-    logmsg "Error detected: $@.\n  Trying again by counting with pure perl";
-    my $kmerHash=countKmersPurePerl($fastq,$kmerlength,$settings);
-    $hist=kmerToHist($kmerHash,$settings);
-  }
-
-  return $hist;
-}
-
-sub countKmersPurePerl{
-  my($fastq,$kmerlength,$settings)=@_;
-
-  # Multithreading
-  my $seqQ=Thread::Queue->new;
-  my @thr;
-  for(0..$$settings{numcpus}-1){
-    $thr[$_]=threads->new(\&countKmersPurePerlWorker,$kmerlength,$seqQ,$settings);
-  }
-
-  # Pure perl to make this standalone... the only reason
-  # we are counting kmers in Perl instead of C.
-  my $fastqFh=openFastq($fastq,$settings);
-  my $i=0;
-  my @buffer=();
-  while(<$fastqFh>){ # burn the read ID line
-    $i++;
-    my $seq=<$fastqFh>;
-    push(@buffer, $seq);
-
-    if($i % 1000000 == 0){
-      logmsg "Enqueuing ".scalar(@buffer)." reads for kmer counting";
-      $seqQ->enqueue(@buffer);
-      @buffer=();
-    }
-    
-    # Burn the quality score lines
-    <$fastqFh>;
-    <$fastqFh>;
-  }
-  close $fastqFh;
-
-  logmsg "Enqueuing ".scalar(@buffer)." reads for kmer counting";
-  $seqQ->enqueue(@buffer);
-  logmsg $seqQ->pending . " reads still pending...";
-
-  # Send the termination signal
-  $seqQ->enqueue(undef) for(@thr);
-
-  my %kmer=();
-  for(@thr){
-    my $threadKmer=$_->join;
-    for my $kmer(keys(%$threadKmer)){
-      $kmer{$kmer}+=$$threadKmer{$kmer};
-    }
-  }
-
-  return \%kmer;
-}
-
-sub countKmersPurePerlWorker{
-  my($kmerlength,$seqQ,$settings)=@_; 
-
-  my %kmer;
-  while(defined(my $seq=$seqQ->dequeue)){
-
-    my $numKmersInRead=length($seq)-$kmerlength+1;
-
-    # Count kmers in a sliding window.
-    # We must keep this loop optimized for speed.
-    for(my $j=0;$j<$numKmersInRead;$j++){
-      $kmer{substr($seq,$j,$kmerlength)}++;
-    }
-
-  }
-
-  return \%kmer;
-}
-
-sub countKmersKmc{
-  my($fastq,$kmerlength,$settings)=@_;
-  my $basename=basename($fastq);
-  my %kmer=();
-
-  # Version checking
-  my $kmcVersionLine=(`kmc 2>&1 | grep ver`)[0];
-  $kmcVersionLine=~/(\d+)(\.\d+)?/;
-  my $majorVersion=$1;
-  my $minorVersion=$2;
-  if($majorVersion < 3){
-    die "ERROR: KMC version 3 or above is required";
-  }
-
-  my $kmcTempdir="$$settings{tempdir}/kmc.tmp";
-  mkdir($kmcTempdir);
-
-  system("kmc -k$$settings{kmerlength} -ci$$settings{gt} -t$$settings{numcpus} $fastq $$settings{tempdir}/kmc $kmcTempdir");
-  die "ERROR: running kmc" if $?;
-  rmdir($kmcTempdir);
-
-  return "$$settings{tempdir}/kmc";
-  #time /opt/KMC3/kmc -k21 -ci1 -t16 in.fastq kmers1 KMC.tmp
-  #kmc_tools transform kmers1 histogram out.db
-}
-
-sub histogramKmc{
-  my($kmcFile, $settings)=@_;
-
-  my $histFile="$$settings{tempdir}/hist.tsv";
-  system("kmc_tools transform $kmcFile histogram $histFile");
-  die "ERROR with kmc_tools" if $?;
-
-  my @hist;
-  open(my $kmcHistFh, $histFile) or die "ERROR: coult not open $histFile: $!";
-  while(<$kmcHistFh>){
-    s/^\s+|\s+$//g; 
-    my($freq,$count)=split /\s+/;
-    $hist[$freq]=$count+0;
-  }
-  # Set a default value
-  for(@hist){
-    $_//=0;
-  }
-
-  return \@hist;
-}
-
-sub countKmersJellyfish{
-  my($fastq,$kmerlength,$settings)=@_;
-  my $basename=basename($fastq);
-  my %kmer=();
-
-  # Version checking
-  my $jfVersion=`jellyfish --version`;
-  # e.g., jellyfish 2.2.6
-  if($jfVersion =~ /(jellyfish\s+)?(\d+)?/){
-    my $majorVersion=$2;
-    if($majorVersion < 2){
-      die "ERROR: Jellyfish v2 or greater is required";
-    }
-  }
-  
-  my $outprefix="$$settings{tempdir}/$basename.mer_counts";
-  my $jfDb="$$settings{tempdir}/$basename.merged.jf";
-  my $kmerTsv="$$settings{tempdir}/$basename.jf.tsv";
-
-  # Counting
-  logmsg "Counting kmers in $fastq";
-  my $jellyfishCountOptions="-s 10000000 -m $kmerlength -o $outprefix -t $$settings{numcpus}";
-  my $uncompressedFastq="$$settings{tempdir}/$basename.fastq";
-  if($fastq=~/\.gz$/i){
-    logmsg "Decompressing fastq for jellyfish into $uncompressedFastq";
-    system("zcat $fastq > $uncompressedFastq"); die if $?;
-    system("jellyfish count $jellyfishCountOptions $uncompressedFastq");
-  } else {
-    system("jellyfish count $jellyfishCountOptions $fastq");
-  }
-  die "Error: problem with jellyfish" if $?;
-
-  # cleanup
-  for($uncompressedFastq){
-    unlink $_ if($_ && -e $_);
-  }
-
-  return $outprefix;
-}
-
-sub histogramJellyfish{
-  my($jfFile,$settings)=@_;
-
-  my $histFile="$$settings{tempdir}/hist.tsv";
-  system("jellyfish histo '$jfFile' > $histFile");
-  die "ERROR: cannot run jellyfish histo on $jfFile" if $?;
-
-  my @hist=();
-  open(my $jfHistFh, $histFile) or die "ERROR: could read $histFile: $!";
-  while(<$jfHistFh>){
-    s/^\s+|\s+$//g; 
-    my($freq,$count)=split /\s+/;
-    $hist[$freq]=$count+0;
-  }
-  # Set a default value
-  for(@hist){
-    $_//=0;
-  }
-
-  return \@hist;
-}
-
-sub kmerToHist{
-  my($kmercountHash,$settings)=@_;
-  my %hist=();
-  my @hist=(0);
-
-  for my $kmercount(values(%$kmercountHash)){
-    $hist{$kmercount}++;
-  }
-
-  # Turn this hash into an array
-  for(1..max(keys(%hist))){
-    $hist[$_] = $hist{$_} || 0;
-  }
-
-  if($$settings{hist}){
-    logmsg "Writing histogram to $$settings{hist}";
-    open(HIST, ">", $$settings{hist}) or die "ERROR: could not write histogram to $$settings{hist}: $!";
-    for(my $i=0;$i<@hist;$i++){
-      print HIST "$i\t$hist[$i]\n";
-    }
-    close HIST;
   }
 
   return \@hist;
@@ -422,31 +164,6 @@ sub findTheValley{
   return [$kmerCount,$valley];
 }
 
-# Opens a fastq file in a smart way
-sub openFastq{
-  my($fastq,$settings)=@_;
-
-  my $fh;
-
-  my @fastqExt=qw(.fastq.gz .fastq .fq.gz .fq);
-  my($name,$dir,$ext)=fileparse($fastq,@fastqExt);
-
-  # Open the file in different ways, depending on if it
-  # is gzipped or if the user has gzip installed.
-  if($ext =~/\.gz$/){
-    # use binary gzip if we can... why not take advantage
-    # of the compiled binary's speedup?
-    if(-e "/usr/bin/gzip"){
-      open($fh,"gzip -cd $fastq | ") or die "ERROR: could not open $fastq for reading!: $!";
-    }else{
-      $fh=new IO::Uncompress::Gunzip($fastq) or die "ERROR: could not read $fastq: $!";
-    }
-  } else {
-    open($fh,"<",$fastq) or die "ERROR: could not open $fastq for reading!: $!";
-  }
-  return $fh;
-}
-
 # http://www.perlmonks.org/?node_id=761662
 sub which{
   my($exe,$settings)=@_;
@@ -479,9 +196,6 @@ sub usage{
   --numcpus  1
 
   OUTPUT
-  --hist   ''  A file to write the histogram, or a file
-               to read the histogram if it already exists.
-               Useful if you want to rerun this script.
   --valleys,   To output valleys (default)
   --novalleys  To supppress valleys
   --peaks,     To output maximum peaks (default)
