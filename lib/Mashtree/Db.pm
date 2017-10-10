@@ -95,7 +95,9 @@ sub addDistances{
   my $dbh=$self->{dbh};
   my $numInserted=0;   # how many are going to be inserted?
 
-  my $insertSQL="INSERT INTO DISTANCE VALUES";
+  my $baseInsertSql="INSERT INTO DISTANCE VALUES";
+  my @insertSQL=();
+  my $insertSQL=$baseInsertSql;
   open(my $fh, "<", $distancesFile) or die "ERROR: could not read $distancesFile: $!";
   my $query="";
   while(<$fh>){
@@ -114,18 +116,32 @@ sub addDistances{
 
     $numInserted++;
     $insertSQL.=qq( ("$query", "$subject", $distance), );
-
+    
+    # Avoid going over the SQLITE_MAX_COMPOUND_SELECT limit in sqlite3
+    if($numInserted % 99 == 0){
+      $insertSQL=~s/\s*,\s*$//; # remove whitespace and comma from the end
+      push(@insertSQL, $insertSQL);
+      $insertSQL=$baseInsertSql;
+    }
   }
-
-  $insertSQL=~s/\s*,\s*$//; # remove whitespace and comma from the end
 
   if($numInserted == 0){
     return $numInserted;
   }
+
+  # One last insert
+  if($insertSQL=~/VALUES.../){
+    $insertSQL=~s/\s*,\s*$//; # remove whitespace and comma from the end
+    push(@insertSQL, $insertSQL);
+    $insertSQL=$baseInsertSql;
+  }
   
-  $dbh->do($insertSQL);
-  if($dbh->err()){
-    die "ERROR: could not insert $distancesFile into the database with query\n  $insertSQL\n  ".$dbh->err();
+  # Run through all the insert statements
+  for my $insertSQL(@insertSQL){
+    $dbh->do($insertSQL);
+    if($dbh->err()){
+      die "ERROR: could not insert $distancesFile into the database with query\n  $insertSQL\n  ".$dbh->err();
+    }
   }
 
   return $numInserted;

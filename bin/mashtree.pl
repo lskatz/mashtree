@@ -163,8 +163,8 @@ sub mashSketch{
     my $unzipped="$tempdir/".basename($fastq);
     $unzipped=~s/\.(gz|bz2?|zip)$//i;
     my $was_unzipped=0;
-    # Don't bother unzipping if it's a fastq file b/c Mash can read those
-    if(!grep {$_ eq $fileExt} @fastqExt){
+    # Don't bother unzipping if it's a fastq or fasta file b/c Mash can read those
+    if(!grep {$_ eq $fileExt} (@fastqExt,@fastaExt)){
       if($fastq=~/\.gz$/i){
         system("gzip  -cd $fastq > $unzipped");
         die "ERROR with gzip  -cd $fastq" if $?;
@@ -387,11 +387,15 @@ sub determineMinimumDepth{
 
 sub usage{
   "$0: use distances from Mash (min-hash algorithm) to make a NJ tree
-  Usage: $0 [options] *.fastq *.fasta *.gbk > tree.dnd
+  Usage: $0 [options] *.fastq *.fasta *.gbk *.msh > tree.dnd
   NOTE: fastq files are read as raw reads;
         fasta, gbk, and embl files are read as assemblies;
         Input files can be gzipped.
-  --tempdir                 If not specified, one will be made for you
+  --tempdir            ''   If specified, this directory will not be
+                            removed at the end of the script and can
+                            be used to cache results for future
+                            analyses.
+                            If not specified, a dir will be made for you
                             and then deleted at the end of this script.
   --numcpus            1    This script uses Perl threads.
   --outmatrix          ''   If specified, will write a distance matrix
