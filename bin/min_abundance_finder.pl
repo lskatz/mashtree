@@ -1,4 +1,5 @@
 #!/usr/bin/env perl
+
 # Find the minimum abundance of kmers
 # Original script was in Python at 
 #   https://gist.github.com/alexjironkin/4ed43412878723491240814a0d5a6ed6/223dea45d70c9136703a4afaab0178cdbfbd2042
@@ -19,8 +20,6 @@ use IO::Uncompress::Gunzip qw/gunzip/;
 use threads;
 use Thread::Queue;
 
-use Bio::Kmer;
-
 # http://perldoc.perl.org/perlop.html#Symbolic-Unary-Operators
 # +Inf and -Inf will be a binary complement of all zeros
 use constant MAXINT =>  ~0;
@@ -33,49 +32,63 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help kmerlength|kmer=i kmerCounter=s delta=i gt|greaterthan=i valleys! peaks! tempdir=s numcpus=i)) or die $!;
+  GetOptions($settings,qw(help kmerlength|kmer=i kmerCounter=s delta=i gt|greaterthan=i tempdir=s numcpus=i)) or die $!;
   $$settings{kmerlength} ||=21;
   $$settings{kmerCounter}||="";
-  $$settings{delta}      ||=100;
+  $$settings{delta}      ||=10;
   $$settings{gt}         ||=1;
   $$settings{tempdir}    ||=tempdir(TEMPLATE=>"$0.XXXXXX",CLEANUP=>1,TMPDIR=>1);
   $$settings{numcpus}    ||=1;
-
-  $$settings{peaks}     //=0;
-  $$settings{valleys}   //=1;
 
   my($fastq)=@ARGV;
   die usage() if(!$fastq || $$settings{help});
   die "ERROR: I could not find fastq at $fastq" if(!-e $fastq);
 
-  my $kmer=Bio::Kmer->new($fastq,{
-      numcpus       => $$settings{numcpus},
-      kmercounter   => "perl",
-  });
-  my $histogram=$kmer->histogram();
-
-  # Find peaks and valleys using the simplified 
-  # 'delta' algorithm.
-  my $peaks=findThePeaksAndValleys($histogram,$$settings{delta},$settings);
-
-  # Configure the output
-  my @outputPos=();
-  push(@outputPos, @{$$peaks{valleys}}) if($$settings{valleys});
-  push(@outputPos, @{$$peaks{peaks}})   if($$settings{peaks});
-  @outputPos=sort {$$a[0] <=> $$b[0]} @outputPos;
-
-  if(!@outputPos){
-    logmsg "WARNING: no peaks or valleys were reported";
+  my %firstValleyVote;
+  for(my $i=9; $i<=23; $i+=2){
+    $$settings{kmerlength}=$i;
+    my $histogram=mashHistogram($fastq,$settings);
+    my $tmp=findThePeaksAndValleys($histogram,$$settings{delta},$settings);
+    my $firstValley=$$tmp{valleys}[0][0] || next;
+    $firstValleyVote{$firstValley}++;
   }
 
-  # Header for output table
+  # Where is the first valley most likely, given a range
+  # of kmer sizes?
+  my $firstValley;
+  my $mostVotes=max(values(%firstValleyVote));
+  for my $bin(sort{$a<=>$b} keys(%firstValleyVote)){
+    if($firstValleyVote{$bin}==$mostVotes){
+      $firstValley=$bin;
+      last;
+    }
+  }
+
   print join("\t",qw(kmer count))."\n";
-  # Finish off the table of output.
-  for my $position (@outputPos){
-    print join("\t",@$position)."\n";
-  }
-
+  print join("\t", $firstValley, 1)."\n";
   return 0;
+
+}
+
+# Poor man's way of subsampling
+# Thanks to Nick Greenfield for pointing this out.
+sub mashHistogram{
+  my($fastq,$settings)=@_;
+  my $sketch="$$settings{tempdir}/sketch.msh";
+  system("mash sketch -p $$settings{numcpus} -k $$settings{kmerlength} -b 1000000 -o $sketch $fastq >& /dev/null");
+  die if $?;
+  
+  my @histogram;
+  open(my $fh, "mash info -c $sketch | ") or die "ERROR: could not get mash info on sketch $sketch";
+  while(my $line=<$fh>){
+    $line=~s/^\s+|\s+$//g;  # whitespace trim
+    next if($line=~/^#/);
+    my($filename, $bin, $frequency)=split(/\t/, $line);
+    $histogram[$bin]=$frequency;
+  }
+  close $fh;
+  $histogram[$_]||=0 for(0..@histogram);
+  return \@histogram;
 }
 
 sub readHistogram{
@@ -179,6 +192,32 @@ sub which{
   return $tool_path;
 }
 
+# Opens a fastq file in a smart way
+sub openFastq{
+  my($fastq,$settings)=@_;
+
+  my $fh;
+
+  my @fastqExt=qw(.fastq.gz .fastq .fq.gz .fq);
+  my($name,$dir,$ext)=fileparse($fastq,@fastqExt);
+
+  # Open the file in different ways, depending on if it
+  # is gzipped or if the user has gzip installed.
+  if($ext =~/\.gz$/){
+    # use binary gzip if we can... why not take advantage
+    # of the compiled binary's speedup?
+    if(-e "/usr/bin/gzip"){
+      open($fh,"gzip -cd $fastq | ") or die "ERROR: could not open $fastq for reading!: $!";
+    }else{
+      $fh=new IO::Uncompress::Gunzip($fastq) or die "ERROR: could not read $fastq: $!";
+    }
+  } else {
+    open($fh,"<",$fastq) or die "ERROR: could not open $fastq for reading!: $!";
+  }
+  return $fh;
+}
+
+
 sub usage{
   "
   $0: 
@@ -194,12 +233,6 @@ sub usage{
   --delta  100 How different the counts have to be to
                detect a valley or peak
   --numcpus  1
-
-  OUTPUT
-  --valleys,   To output valleys (default)
-  --novalleys  To supppress valleys
-  --peaks,     To output maximum peaks (default)
-  --nopeaks    To suppress maximum peaks
 
   MISC
   --kmerCounter ''  The kmer counting program to use.

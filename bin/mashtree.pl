@@ -347,8 +347,8 @@ sub mashDist{
 sub determineMinimumDepth{
   my($fastq,$mindepth,$kmerlength,$settings)=@_;
 
-  $delta{$fastq}//=100;
-  my $defaultDepth=1; # if no valley is detected
+  $delta{$fastq}//=10;
+  my $defaultDepth=2; # if no valley is detected
 
   return $mindepth if($mindepth > 0);
 
@@ -357,8 +357,7 @@ sub determineMinimumDepth{
   # Run the min abundance finder to find the valleys
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
-  my $histFile="$$settings{tempdir}/$basename.hist.tsv";
-  my @valley=`$scriptDir/min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --valleys --nopeaks --hist $histFile --delta $delta{$fastq}`;
+  my @valley=`$scriptDir/min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}`;
   die "ERROR with min_abundance_finder.pl on $fastq: $!" if($?);
   chomp(@valley);
   # Some cleanup of large files
