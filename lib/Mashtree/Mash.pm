@@ -9,7 +9,7 @@ use Data::Dumper;
 use lib dirname($INC{"Mashtree/Mash.pm"});
 use lib dirname($INC{"Mashtree/Mash.pm"})."/..";
 
-use Mashtree qw/_truncateFilename logmsg/;
+use Mashtree qw/logmsg/;
 use JSON qw/from_json/;
 use Bio::Seq;
 use Bio::Tree::Tree;
@@ -23,13 +23,15 @@ our @EXPORT_OK = qw(
 
 local $0=basename $0;
 
+# If this is used in a scalar context, $self->toString() is called
+use overload '""' => 'toString';
 
 # Properties of this object:
 sub new{
   my($class,$file,$settings)=@_;
 
   if(ref($file) ne 'ARRAY'){
-    die "ERROR: parameter \$file must be a list of file(s)";
+    die "ERROR: the first parameter must be a list of mash file(s)";
   }
 
   my $self={
@@ -39,6 +41,7 @@ sub new{
     distance  => {},
     cluster   => [],
     aln       => [],
+    refinedTree=>"",  # set to bool false but will be set to Bio::Tree::Tree
   };
   bless($self,$class);
 
@@ -104,7 +107,7 @@ sub mashDistances{
 # Returns clusters
 sub clusters{
   my($self,$cutoff)=@_;
-  $cutoff||=0.05;
+  $cutoff||=0.10;
 
   if(scalar(@{ $self->{cluster} }) > 0){
     return $self->{cluster};
@@ -186,33 +189,31 @@ sub alignments{
 sub refinedTree{
   my($self)=@_;
 
+  if($self->{refinedTree}){
+    return $self->{refinedTree};
+  }
+
   my $cluster=$self->clusters;
   my @seed = map{$$_[0]} @$cluster;
   my $alnArr=$self->alignments;
   my $distance=$self->mashDistances;
 
-  my $comprehensiveTree=Bio::Tree::Tree->new;
-  # Make a tree with all the seeds if there are at least
-  # three clusters.
-  # TODO if there are only one or two clusters, make a blank tree with a root node.
-  if(@$cluster < 3){
-    ...;
-  } elsif(@$cluster >= 3){
-    my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
-    my $matrix   = Bio::Matrix::Generic->new(-rownames=>\@seed,-colnames=>\@seed);
+  my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
+  my $matrix   = Bio::Matrix::Generic->new(-rownames=>\@seed,-colnames=>\@seed);
 
-    # Set the distances in the distance matrix
-    for(my $i=0;$i<@seed;$i++){
-      my $genome1=$seed[$i];
-      for(my $j=0;$j<@seed;$j++){
-        my $genome2=$seed[$j];
-        $matrix->entry($genome1,$genome2,$$distance{$genome1}{$genome2});
-      }
+  die "TODO figure out to do with clusters < 3" if(@$cluster < 3);
+
+  # Set the distances in the distance matrix
+  for(my $i=0;$i<@seed;$i++){
+    my $genome1=$seed[$i];
+    for(my $j=0;$j<@seed;$j++){
+      my $genome2=$seed[$j];
+      $matrix->entry($genome1,$genome2,$$distance{$genome1}{$genome2});
     }
-        
-    $comprehensiveTree = $dfactory->make_tree($matrix);
   }
+  my $refinedTree = $dfactory->make_tree($matrix);
 
+  # Make the individual trees
   for(my $i=0;$i<@$alnArr;$i++){
     # Don't run a new tree on a cluster of one.
     # Skip because it is already represented as a seed.
@@ -225,27 +226,41 @@ sub refinedTree{
     my $stats    = Bio::Align::DNAStatistics->new;
     my $matrix   = $stats->distance(-method=>'Uncorrected', -align => $aln);
     my $tree     = $dfactory->make_tree($matrix);
-    my $rootNode = $tree->get_root_node;
 
-    # TODO HOW TO MERGE TREES????
-    foreach my $node($rootNode->get_all_Descendents()){
-      next if(!$node->is_Leaf);
-      $comprehensiveTree->merge_lineage($node);
-      last;
+    # Root on the seed in the subtree.
+    # Next, add the seed node from the subtree to the 
+    # main tree.
+    my $subtree_seedNode=$tree->find_node(-id=>$seed[$i]);
+    my $subtree_root = $tree->reroot_at_midpoint($subtree_seedNode,"root".$i);
+    my $refinedTree_seedNode=$refinedTree->find_node(-id=>$seed[$i]);
+    for my $node($subtree_root->each_Descendent()){
+      if($node->branch_length==0){
+        $node->branch_length(0.001);
+      }
+      $refinedTree_seedNode->add_Descendent($node);
     }
-    die $comprehensiveTree->as_text;
-      
-    my $seedNode = $tree->findnode_by_id($seed[$i]);
-    die Dumper $seedNode;
-    print $tree->as_text;
-    $comprehensiveTree->merge_lineage($seedNode);
-    print $tree->as_text()."\n";
   }
-  die $comprehensiveTree->as_text;
+  $refinedTree->contract_linear_paths;
 
-  # glue together the trees
+  $self->{refinedTree}=$refinedTree;
 
-  return $comprehensiveTree;
+  return $refinedTree;
+}
+
+sub toString{
+  my($self)=@_;
+  my $fileArr=$self->{file};
+  my $return="Mashtree::Mash object with " .scalar(@$fileArr)." files:\n\n";
+  
+  for(@$fileArr){
+    $return.="-------${_}------\n";
+    my $info=`mash info '$_'`;
+    chomp($info);
+    $return.=$info;
+    $return.="^^^^^^^${_}^^^^^^\n\n";
+  }
+  
+  return $return;
 }
 
 1; # gotta love how we we return 1 in modules. TRUTH!!!
