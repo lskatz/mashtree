@@ -26,7 +26,52 @@ local $0=basename $0;
 # If this is used in a scalar context, $self->toString() is called
 use overload '""' => 'toString';
 
-# Properties of this object:
+=pod
+
+=head1 NAME
+
+Mashtree::Mash
+
+=head1 SYNOPSIS
+
+A module to read `mash info` output and transform it
+
+  use strict;
+  use warnings;
+  use Mashtree::Mash
+
+  # Quick example
+
+  # Sketch all fastq files into one mash file.
+  system("mash sketch *.fastq.gz > all.msh");
+  die if $?;
+  # Read the mash file.
+  my $msh = Mashtree::Mash->new(["all.msh"]);
+  # Get a Bio::Tree::Tree object
+  my $tree = $msh->refinedTree;
+
+  # Do something with the tree, e.g.,
+  print $tree->as_text("newick");
+
+=head1 DESCRIPTION
+
+This is a module to read mash files produced by the Mash executable. For more information on Mash, see L<mash.readthedocs.org>.  This module is capable of reading mash files, estimating which entries are clustered, producing a pseudo-multiple sequence alignment (MSA), and creating a tree based on either mash distances or the pseudo-MSA.  The MSA is generated with A being present and T being absent.
+
+=head1 METHODS
+
+=over
+
+=item Mashtree::Mash->new(\@listOfFiles,\%options);
+
+Create a new instance of Mashtree::Mash.  One object per set of files.
+
+  Applicable arguments:
+  None so far (TODO)
+
+=back
+
+=cut
+
 sub new{
   my($class,$file,$settings)=@_;
 
@@ -56,6 +101,21 @@ sub new{
   return $self;
 }
 
+=pod
+
+=over
+
+=item $msh->info()
+
+Returns a hash ref that describes a single mash file. Updates the Mashtree::Mash object with this info. This method is ordinarily not used externally to the object.
+
+  Arguments: One mash file
+  Returns:   Reference to a hash
+
+=back
+
+=cut
+
 sub info{
   my($self,$msh)=@_;
   
@@ -80,6 +140,18 @@ sub info{
   return \%info;
 }
 
+=pod
+
+=over
+
+=item $msh->mashDistances()
+
+Returns a reference to a hash of mash distances
+
+=back
+
+=cut
+
 sub mashDistances{
   my($self)=@_;
   # Don't recalculate
@@ -103,6 +175,23 @@ sub mashDistances{
   $self->{distance}=\%distance;
   return \%distance;
 }
+
+=pod
+
+=over
+
+=item $msh->clusters
+
+Estimates which entries belong to which cluster.  The default cutoff is a mash distance of 0.10, but the user can supply a different cutoff.  Supplying a cutoff of 0 indicates that each new mash profile is a separate cluster; 1 means that everything belongs to the same cluster.
+
+This affects downstream methods that rely on knowing which genomes should be compared with each other in a more refined way.
+
+  Arguments: cutoff (decimal)
+  Returns:   List of lists.  Each sub-list is a cluster.
+
+=back
+
+=cut
 
 # Returns clusters
 sub clusters{
@@ -144,7 +233,21 @@ sub clusters{
   return \@cluster;
 }
 
-# Make sets of alignments
+=pod
+
+=over
+
+=item $msh->alignments()
+
+Return a list of Bio::Align objects, one per cluster. If $msh->cluster is not called beforehand, it will be called internally with default values.
+
+  Arguments: none
+  Returns:   List of Bio::Align objects
+
+=back
+
+=cut
+
 sub alignments{
   my($self)=@_;
 
@@ -184,8 +287,21 @@ sub alignments{
   return \@aln;
 }
 
-# Make a tree for each cluster, then glue them together 
-# using mash distances for branch length.
+=pod
+
+=over
+
+=item $msh->refinedTree
+
+Make a tree for each cluster, then glue them together using mash distances for branch length.  $msh->alignments is internally called if it has not already been called.
+
+  Arguments: None
+  Returns:   Bio::Tree::Tree object
+
+=back
+
+=cut
+
 sub refinedTree{
   my($self)=@_;
 
@@ -215,7 +331,7 @@ sub refinedTree{
 
   my $node_with_longest_branch = _reroot_at_midpoint($refinedTree);
   my $refinedTree_root = $refinedTree->reroot_at_midpoint($node_with_longest_branch,"root_refined");
-  $refinedTree_root->branch_length(0.01);
+  #$refinedTree_root->branch_length(0.01);
 
   # Make the individual trees
   for(my $i=0;$i<@$alnArr;$i++){
@@ -239,7 +355,7 @@ sub refinedTree{
     my $ancestorNode=$refinedTree_seedNode->ancestor;
     for my $node($subtree_root->each_Descendent()){
       if($node->branch_length==0){
-        $node->branch_length(0.001);
+        #$node->branch_length(0.001);
       }
       $ancestorNode->add_Descendent($node);
     }
@@ -247,12 +363,18 @@ sub refinedTree{
     # subtree.
     $ancestorNode->remove_Descendent($refinedTree_seedNode);
   }
-  $refinedTree->contract_linear_paths;
+  #$refinedTree->contract_linear_paths;
 
   $self->{refinedTree}=$refinedTree;
 
   return $refinedTree;
 }
+
+# TODO subroutine to make just the mash distances tree
+# TODO subroutine to make individual trees based on kmer presence/absence
+
+
+##### Utility methods
 
 sub _reroot_at_midpoint{
   my($tree)=@_;
@@ -283,6 +405,24 @@ sub toString{
   
   return $return;
 }
+
+=pod
+
+=head1 COPYRIGHT AND LICENSE
+
+MIT license.
+
+=head1 AUTHOR
+
+Author:  Lee Katz <lkatz@cdc.gov>
+
+For additional help, go to https://github.com/lskatz/Mashtree
+
+CPAN module at http://search.cpan.org/~lskatz/Mashtree
+
+=for html <a href="https://travis-ci.org/lskatz/Mashtree"><img src="https://travis-ci.org/lskatz/Mashtree.svg?branch=master"></a>
+
+=cut
 
 1; # gotta love how we we return 1 in modules. TRUTH!!!
 
