@@ -30,11 +30,18 @@ WriteMakefile1(
     'threads::shared'=> 0,
     'Thread::Queue'  => 0,
     # Not core (I think?)
-    'DBI'            => 0,
+    'DBI'            => 1.630,
     'DBD::SQLite'    => 0,
     'Bio::Matrix::IO'=> 0,
+    'Bio::Matrix::Generic'=> 0,
     'Bio::Tree::DistanceFactory'=> 0,
     'Bio::Tree::Statistics'=> 0,
+    'Bio::Seq'       => 0,
+    'Bio::Tree::Tree'=> 0,
+    'Bio::SimpleAlign'=>0,
+    'Bio::Align::DNAStatistics'=>0,
+    'JSON'           => 2.93,
+    
     #'Bio::Kmer'      => 0.19,
   },
   BUILD_REQUIRES => {
