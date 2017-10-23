@@ -1,0 +1,145 @@
+=pod
+
+=head1 NAME
+
+Mashtree::Mash
+
+=head1 SYNOPSIS
+
+A module to read `mash info` output and transform it
+
+  use strict;
+  use warnings;
+  use Mashtree::Mash
+
+  # Quick example
+
+  # Sketch all fastq files into one mash file.
+  system("mash sketch *.fastq.gz > all.msh");
+  die if $?;
+  # Read the mash file.
+  my $msh = Mashtree::Mash->new(["all.msh"]);
+  # Get a Bio::Tree::Tree object
+  my $tree = $msh->refinedTree;
+
+  # Do something with the tree, e.g.,
+  print $tree->as_text("newick");
+
+=head1 DESCRIPTION
+
+This is a module to read mash files produced by the Mash executable. For more information on Mash, see L<mash.readthedocs.org>.  This module is capable of reading mash files, estimating which entries are clustered, producing a pseudo-multiple sequence alignment (MSA), and creating a tree based on either mash distances or the pseudo-MSA.  The MSA is generated with A being present and T being absent.
+
+=head1 METHODS
+
+=over
+
+=item Mashtree::Mash->new(\@listOfFiles,\%options);
+
+Create a new instance of Mashtree::Mash.  One object per set of files.
+
+  Applicable arguments:
+  None so far (TODO)
+
+=back
+
+
+=cut
+
+=pod
+
+=over
+
+=item $msh->info()
+
+Returns a hash ref that describes a single mash file. Updates the Mashtree::Mash object with this info. This method is ordinarily not used externally to the object.
+
+  Arguments: One mash file
+  Returns:   Reference to a hash
+
+=back
+
+
+=cut
+
+=pod
+
+=over
+
+=item $msh->mashDistances()
+
+Returns a reference to a hash of mash distances
+
+=back
+
+
+=cut
+
+=pod
+
+=over
+
+=item $msh->clusters
+
+Estimates which entries belong to which cluster.  The default cutoff is a mash distance of 0.10, but the user can supply a different cutoff.  Supplying a cutoff of 0 indicates that each new mash profile is a separate cluster; 1 means that everything belongs to the same cluster.
+
+This affects downstream methods that rely on knowing which genomes should be compared with each other in a more refined way.
+
+  Arguments: cutoff (decimal)
+  Returns:   List of lists.  Each sub-list is a cluster.
+
+=back
+
+
+=cut
+
+=pod
+
+=over
+
+=item $msh->alignments()
+
+Return a list of Bio::Align objects, one per cluster. If $msh->cluster is not called beforehand, it will be called internally with default values.
+
+  Arguments: none
+  Returns:   List of Bio::Align objects
+
+=back
+
+
+=cut
+
+=pod
+
+=over
+
+=item $msh->refinedTree
+
+Make a tree for each cluster, then glue them together using mash distances for branch length.  $msh->alignments is internally called if it has not already been called.
+
+  Arguments: None
+  Returns:   Bio::Tree::Tree object
+
+=back
+
+
+=cut
+
+=pod
+
+=head1 COPYRIGHT AND LICENSE
+
+MIT license.
+
+=head1 AUTHOR
+
+Author:  Lee Katz <lkatz@cdc.gov>
+
+For additional help, go to https://github.com/lskatz/Mashtree
+
+CPAN module at http://search.cpan.org/~lskatz/Mashtree
+
+=for html <a href="https://travis-ci.org/lskatz/Mashtree"><img src="https://travis-ci.org/lskatz/Mashtree.svg?branch=master"></a>
+
+
+=cut
+
