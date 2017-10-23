@@ -115,7 +115,7 @@ sub clusters{
 
   my $distance=$self->mashDistances;
 
-  my @genome=keys(%$distance);
+  my @genome=sort {$a cmp $b} keys(%$distance);
   my $numGenomes=@genome;
   # Initialize the set of clusters with the first genome.
   # The first element of each cluster is the 'seed'
@@ -213,6 +213,10 @@ sub refinedTree{
   }
   my $refinedTree = $dfactory->make_tree($matrix);
 
+  my $node_with_longest_branch = _reroot_at_midpoint($refinedTree);
+  my $refinedTree_root = $refinedTree->reroot_at_midpoint($node_with_longest_branch,"root_refined");
+  $refinedTree_root->branch_length(0.01);
+
   # Make the individual trees
   for(my $i=0;$i<@$alnArr;$i++){
     # Don't run a new tree on a cluster of one.
@@ -230,21 +234,38 @@ sub refinedTree{
     # Root on the seed in the subtree.
     # Next, add the seed node from the subtree to the 
     # main tree.
-    my $subtree_seedNode=$tree->find_node(-id=>$seed[$i]);
-    my $subtree_root = $tree->reroot_at_midpoint($subtree_seedNode,"root".$i);
+    my $subtree_root = _reroot_at_midpoint($tree);
     my $refinedTree_seedNode=$refinedTree->find_node(-id=>$seed[$i]);
+    my $ancestorNode=$refinedTree_seedNode->ancestor;
     for my $node($subtree_root->each_Descendent()){
       if($node->branch_length==0){
         $node->branch_length(0.001);
       }
-      $refinedTree_seedNode->add_Descendent($node);
+      $ancestorNode->add_Descendent($node);
     }
+    # Remove the seed node itself: it is duplicated in the
+    # subtree.
+    $ancestorNode->remove_Descendent($refinedTree_seedNode);
   }
   $refinedTree->contract_linear_paths;
 
   $self->{refinedTree}=$refinedTree;
 
   return $refinedTree;
+}
+
+sub _reroot_at_midpoint{
+  my($tree)=@_;
+  my $node_with_longest_branch = (sort{
+    my $A=$a->branch_length || 0;
+    my $B=$b->branch_length || 0;
+    $B <=> $A
+  } $tree->get_nodes)[0];
+  my $rootNode=$tree->reroot_at_midpoint($node_with_longest_branch);
+  if(!$rootNode->branch_length || $rootNode->branch_length < 0.01){
+    $rootNode->branch_length(0.01);
+  }
+  return $rootNode;
 }
 
 sub toString{
