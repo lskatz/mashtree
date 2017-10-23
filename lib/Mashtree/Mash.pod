@@ -138,7 +138,7 @@ For additional help, go to https://github.com/lskatz/Mashtree
 
 CPAN module at http://search.cpan.org/~lskatz/Mashtree
 
-=for html <a href="https://travis-ci.org/lskatz/Mashtree"><img src="https://travis-ci.org/lskatz/Mashtree.svg?branch=master"></a>
+=for html <a href="https://travis-ci.org/lskatz/mashtree"><img src="https://travis-ci.org/lskatz/mashtree.svg?branch=master"></a>
 
 
 =cut
