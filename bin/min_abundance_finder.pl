@@ -75,7 +75,7 @@ sub main{
 sub mashHistogram{
   my($fastq,$settings)=@_;
   my $sketch="$$settings{tempdir}/sketch.msh";
-  system("mash sketch -p $$settings{numcpus} -k $$settings{kmerlength} -b 1000000 -o $sketch $fastq >& /dev/null");
+  system("mash sketch -p $$settings{numcpus} -k $$settings{kmerlength} -b 1000000 -o $sketch $fastq > /dev/null 2>&1");
   die if $?;
   
   my @histogram;
@@ -230,7 +230,7 @@ sub usage{
   --gt     1   Look for the first peak at this kmer count
                and then the next valley.
   --kmer   21  kmer length
-  --delta  100 How different the counts have to be to
+  --delta  10  How different the counts have to be to
                detect a valley or peak
   --numcpus  1
 
