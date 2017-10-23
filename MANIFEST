@@ -3,6 +3,7 @@ bin/mashtree_wrapper.pl
 bin/min_abundance_finder.pl
 lib/Mashtree.pm
 lib/Mashtree/Db.pm
+lib/Mashtree/Mash.pm
 Makefile.PL
 README.md
 t/00_env.t
