@@ -96,7 +96,22 @@ sub new{
     $self->info($f);
   }
 
-  # TODO are all mash metadata compatible?  Else: ERROR
+  # Test that all metadata for mash are the same as the
+  # first genome in the set.  I.e., they are all the same.
+  my $info=$self->{info};
+  my @genomeName=keys(%$info);
+  my $ref=shift(@genomeName); 
+  for my $g(@genomeName){
+    # TODO don't worry about sketch size b/c you can take
+    # first X sketches from each where X is the smallest
+    # number of sketches in the set. For now though to make
+    # things simple, just take exact numbers.
+    for my $key(qw(kmer alphabet preserveCase canonical sketchSize hashType hashBits hashSeed)){
+      if($$info{$g}{$key} ne $$info{$ref}{$key}){
+        die "ERROR: genomes $ref and $g are incompatible under property $key";
+      }
+    }
+  }
 
   return $self;
 }
@@ -121,10 +136,18 @@ sub info{
   
   my %info = %{ $self->{info} };
 
+  if(!   $msh){
+    logmsg "WARNING: no file was given to \$self->info.  Did you mean to call the subroutine or the hash element 'info'?";
+    return {};
+  }
+  if(!-e $msh){
+    die "ERROR: could not find file $msh";
+  }
+
   my $mashInfo=from_json(`mash info -d $msh`);
 
   for my $sketch(@{ $$mashInfo{sketches} }){
-    #delete($$sketch{hashes});
+    #delete($$sketch{hashes}); logmsg "DEBUG: removing hashes element";
     $info{$$sketch{name}}=$sketch;
 
     my %sketchHash;
@@ -133,6 +156,11 @@ sub info{
       $sketchHash{$pos}=1;
     }
     $info{$$sketch{name}}{hashes}=\%sketchHash;
+
+    # Also take on the general properties of the mash file
+    for my $key(qw(kmer alphabet preserveCase canonical sketchSize hashType hashBits hashSeed)){
+      $info{$$sketch{name}}{$key}=$$mashInfo{$key};
+    }
   }
 
   $self->{info}=\%info;
