@@ -48,7 +48,7 @@ A module to read `mash info` output and transform it
   # Read the mash file.
   my $msh = Mashtree::Mash->new(["all.msh"]);
   # Get a Bio::Tree::Tree object
-  my $tree = $msh->refinedTree;
+  my $tree = $msh->tree;
 
   # Do something with the tree, e.g.,
   print $tree->as_text("newick");
@@ -82,11 +82,11 @@ sub new{
   my $self={
     file      => $file,
     info      => {},
+    names     => [],
     hashes    => {},
     distance  => {},
-    cluster   => [],
     aln       => [],
-    refinedTree=>"",  # set to bool false but will be set to Bio::Tree::Tree
+    tree=>"",  # set to bool false but will be set to Bio::Tree::Tree
   };
   bless($self,$class);
 
@@ -112,6 +112,9 @@ sub new{
       }
     }
   }
+
+  # Set a sorted list of names
+  $self->{names}=[sort {$a cmp $b} keys(%{ $self->{info} })];
 
   return $self;
 }
@@ -208,75 +211,18 @@ sub mashDistances{
 
 =over
 
-=item $msh->clusters
-
-Estimates which entries belong to which cluster.  The default cutoff is a mash distance of 0.10, but the user can supply a different cutoff.  Supplying a cutoff of 0 indicates that each new mash profile is a separate cluster; 1 means that everything belongs to the same cluster.
-
-This affects downstream methods that rely on knowing which genomes should be compared with each other in a more refined way.
-
-  Arguments: cutoff (decimal)
-  Returns:   List of lists.  Each sub-list is a cluster.
-
-=back
-
-=cut
-
-# Returns clusters
-sub clusters{
-  my($self,$cutoff)=@_;
-  $cutoff||=0.10;
-
-  if(scalar(@{ $self->{cluster} }) > 0){
-    return $self->{cluster};
-  }
-
-  my $distance=$self->mashDistances;
-
-  my @genome=sort {$a cmp $b} keys(%$distance);
-  my $numGenomes=@genome;
-  # Initialize the set of clusters with the first genome.
-  # The first element of each cluster is the 'seed'
-  my @cluster=();
-  $cluster[0]=[$genome[0]];
-  for(my $i=1;$i<$numGenomes;$i++){
-    # Compare each genome against each seed
-    my $was_clustered=0;
-    for(my $j=0;$j<@cluster;$j++){
-      my $seed=$cluster[$j][0];
-      # See if the genome is close to any clusters.
-      if($$distance{$seed}{$genome[$i]} < $cutoff){
-        push(@{ $cluster[$j] }, $genome[$i]);
-        $was_clustered=1;
-        # avoid having multiple genomes going to multiple clusters
-        last;
-      }
-    }
-    # If the genome didn't get clustered with anything,
-    # make a new cluster.
-    if(!$was_clustered){
-      push(@cluster, [$genome[$i]]);
-    }
-  }
-  $self->{cluster}=\@cluster;
-  return \@cluster;
-}
-
-=pod
-
-=over
-
 =item $msh->alignments()
 
-Return a list of Bio::Align objects, one per cluster. If $msh->cluster is not called beforehand, it will be called internally with default values.
+Return a Bio::SimpleAlign object based on presence/absence of kmer hashes.
 
   Arguments: none
-  Returns:   List of Bio::Align objects
+  Returns:   Bio::SimpleAlign
 
 =back
 
 =cut
 
-sub alignments{
+sub alignment{
   my($self)=@_;
 
   if(scalar(@{ $self->{aln} }) > 0){
@@ -285,43 +231,33 @@ sub alignments{
 
   # print an A for present, a T for not present
   my %nt=(present=>"A",absent=>"T");
-  
-  # Get clusters
-  # TODO make dist cutoff value accessible here via $self->new()
-  my $cluster=$self->clusters;
 
-  # loop through each cluster
-  # return set of alns
-  my @aln;
-  for my $genomeArr(@$cluster){
-    my $aln=Bio::SimpleAlign->new();
-    for my $name(@$genomeArr){
-      my $sketch=$$self{info}{$name};
-      my $sequence="";
-      for my $hash(sort {$a<=>$b} keys(%{ $self->{hashes} })){
-        if($$sketch{hashes}{$hash}){
-          $sequence.= $nt{present};
-        } else {
-          $sequence.= $nt{absent};
-        }
-      } 
-      my $seq=Bio::LocatableSeq->new(-id=>$name, -seq=>$sequence);
-      $aln->add_seq($seq);
-    }
-    push(@aln, $aln);
+  my $aln=Bio::SimpleAlign->new();
+  for my $name(keys(%{ $self->{info} })){
+    my $sketch=$$self{info}{$name};
+    my $sequence="";
+    for my $hash(sort {$a<=>$b} keys(%{ $self->{hashes} })){
+      if($$sketch{hashes}{$hash}){
+        $sequence.= $nt{present};
+      } else {
+        $sequence.= $nt{absent};
+      }
+    } 
+    my $seq=Bio::LocatableSeq->new(-id=>$name, -seq=>$sequence);
+    $aln->add_seq($seq);
   }
   
-  $self->{aln}=\@aln;
-  return \@aln;
+  $self->{aln}=$aln;
+  return $aln;
 }
 
 =pod
 
 =over
 
-=item $msh->refinedTree
+=item $msh->tree
 
-Make a tree for each cluster, then glue them together using mash distances for branch length.  $msh->alignments is internally called if it has not already been called.
+Make a tree based on $msh->alignment. $msh->alignment is internally called if it has not already been called.
 
   Arguments: None
   Returns:   Bio::Tree::Tree object
@@ -330,77 +266,26 @@ Make a tree for each cluster, then glue them together using mash distances for b
 
 =cut
 
-sub refinedTree{
+sub tree{
   my($self)=@_;
 
-  if($self->{refinedTree}){
-    return $self->{refinedTree};
+  if($self->{tree}){
+    return $self->{tree};
   }
 
-  my $cluster=$self->clusters;
-  my @seed = map{$$_[0]} @$cluster;
-  my $alnArr=$self->alignments;
-  my $distance=$self->mashDistances;
+  my $aln=$self->alignment;
 
   my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
-  my $matrix   = Bio::Matrix::Generic->new(-rownames=>\@seed,-colnames=>\@seed);
+  my $stats    = Bio::Align::DNAStatistics->new;
+  my $matrix   = $stats->distance(-method=>'Uncorrected', -align => $aln);
+  my $tree     = $dfactory->make_tree($matrix);
 
-  die "TODO figure out to do with clusters < 3" if(@$cluster < 3);
+  my $subtree_root = _reroot_at_midpoint($tree);
 
-  # Set the distances in the distance matrix
-  for(my $i=0;$i<@seed;$i++){
-    my $genome1=$seed[$i];
-    for(my $j=0;$j<@seed;$j++){
-      my $genome2=$seed[$j];
-      $matrix->entry($genome1,$genome2,$$distance{$genome1}{$genome2});
-    }
-  }
-  my $refinedTree = $dfactory->make_tree($matrix);
+  $self->{tree}=$tree;
 
-  my $node_with_longest_branch = _reroot_at_midpoint($refinedTree);
-  my $refinedTree_root = $refinedTree->reroot_at_midpoint($node_with_longest_branch,"root_refined");
-  #$refinedTree_root->branch_length(0.01);
-
-  # Make the individual trees
-  for(my $i=0;$i<@$alnArr;$i++){
-    # Don't run a new tree on a cluster of one.
-    # Skip because it is already represented as a seed.
-    if(@{ $$cluster[$i] } < 2){
-      next;
-    }
-
-    my $aln=$$alnArr[$i];
-    my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
-    my $stats    = Bio::Align::DNAStatistics->new;
-    my $matrix   = $stats->distance(-method=>'Uncorrected', -align => $aln);
-    my $tree     = $dfactory->make_tree($matrix);
-
-    # Root on the seed in the subtree.
-    # Next, add the seed node from the subtree to the 
-    # main tree.
-    my $subtree_root = _reroot_at_midpoint($tree);
-    my $refinedTree_seedNode=$refinedTree->find_node(-id=>$seed[$i]);
-    my $ancestorNode=$refinedTree_seedNode->ancestor;
-    for my $node($subtree_root->each_Descendent()){
-      if($node->branch_length==0){
-        #$node->branch_length(0.001);
-      }
-      $ancestorNode->add_Descendent($node);
-    }
-    # Remove the seed node itself: it is duplicated in the
-    # subtree.
-    $ancestorNode->remove_Descendent($refinedTree_seedNode);
-  }
-  #$refinedTree->contract_linear_paths;
-
-  $self->{refinedTree}=$refinedTree;
-
-  return $refinedTree;
+  return $tree;
 }
-
-# TODO subroutine to make just the mash distances tree
-# TODO subroutine to make individual trees based on kmer presence/absence
-
 
 ##### Utility methods
 
