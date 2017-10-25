@@ -73,14 +73,10 @@ Create a new instance of Mashtree::Mash.  One object per set of files.
 =cut
 
 sub new{
-  my($class,$file,$settings)=@_;
-
-  if(ref($file) ne 'ARRAY'){
-    die "ERROR: the first parameter must be a list of mash file(s)";
-  }
+  my($class,$mshData,$settings)=@_;
 
   my $self={
-    file      => $file,
+    file      => [],
     info      => {},
     names     => [],
     hashes    => {},
@@ -89,6 +85,37 @@ sub new{
     tree=>"",  # set to bool false but will be set to Bio::Tree::Tree
   };
   bless($self,$class);
+
+  # How should we initialize?
+  if(ref($mshData) eq 'HASH'){
+    # Make sure every key is present that is needed
+    my @requiredKeys=qw(info names hashes);
+    for my $key(@requiredKeys){
+      if(!$$mshData{$key}){
+        die "ERROR: could not find key '$key' in hash for $class";
+      }
+      if(ref($$mshData{$key}) ne ref($$self{$key})){
+        die "ERROR: data type for '$key' does not match ".ref($$self{$key});
+      }
+    }
+    ...; # unimplemented so far
+  } elsif(ref($mshData) eq 'ARRAY'){
+    $self->_newByMashFile($mshData,$settings);
+  } else {
+    die "ERROR: the first parameter must be a list of mash file(s)";
+  }
+  return $self;
+}
+
+
+# Initialize with a mash file
+sub _newByMashFile{
+  my($self,$file,$settings)=@_;
+
+  $self->{file}=$file;
+  if(ref($file) ne 'ARRAY'){
+    die "ERROR: the first parameter must be a list of mash file(s)";
+  }
 
   # Gather info from each file. $self->{info} and
   # $self->{hashes} gets updated.
