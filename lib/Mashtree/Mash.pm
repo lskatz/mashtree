@@ -65,8 +65,15 @@ This is a module to read mash files produced by the Mash executable. For more in
 
 Create a new instance of Mashtree::Mash.  One object per set of files.
 
-  Applicable arguments:
-  None so far (TODO)
+  Arguments:  List of filenames
+              Hash of options (none so far)
+  Returns:    Mashtree:Mash object
+
+  -or-
+
+  Arguments:  Hash of data
+              Hash of options (none so far)
+  Returns:    Mashtree:Mash object
 
 =back
 
@@ -98,7 +105,7 @@ sub new{
         die "ERROR: data type for '$key' does not match ".ref($$self{$key});
       }
     }
-    ...; # unimplemented so far
+    $self->_newByHash($mshData,$settings);
   } elsif(ref($mshData) eq 'ARRAY'){
     $self->_newByMashFile($mshData,$settings);
   } else {
@@ -120,7 +127,7 @@ sub _newByMashFile{
   # Gather info from each file. $self->{info} and
   # $self->{hashes} gets updated.
   for my $f(@$file){
-    $self->info($f);
+    $self->addMashFile($f);
   }
 
   # Test that all metadata for mash are the same as the
@@ -150,24 +157,26 @@ sub _newByMashFile{
 
 =over
 
-=item $msh->info()
+=item $msh->addMashFile()
 
 Returns a hash ref that describes a single mash file. Updates the Mashtree::Mash object with this info. This method is ordinarily not used externally to the object.
 
   Arguments: One mash file
   Returns:   Reference to a hash
 
+  TODO:      add new subroutine to add by hash
+
 =back
 
 =cut
 
-sub info{
+sub addMashFile{
   my($self,$msh)=@_;
   
   my %info = %{ $self->{info} };
 
   if(!   $msh){
-    logmsg "WARNING: no file was given to \$self->info.  Did you mean to call the subroutine or the hash element 'info'?";
+    logmsg "WARNING: no file was given to \$self->addMashFile";
     return {};
   }
   if(!-e $msh){
