@@ -9,11 +9,11 @@ before_install:
   - "yes no | cpanm --force --notest Bio::Perl"
   - cpanm -v -L . DBD::SQLite
   #- "yes no | cpanm --force --notest DBI"
-  - wget https://github.com/marbl/Mash/releases/download/v1.1.1/mash-Linux64-v1.1.1.tar.gz
+  - wget https://github.com/marbl/Mash/releases/download/v2.0/mash-Linux64-v2.0.tar
   - tar zxvf mash-Linux64-v1.1.1.tar.gz
 #  - "cpanm Bio::Tree::DistanceFactory"
 #  - "cpanm Bio::Matrix::IO"
 #  - "cpanm Bio::Tree::Statistics"
 #  - "cpanm DBD::SQLite"
 before_script:
-  - PATH=$PATH:./mash-Linux64-v1.1.1
+  - PATH=$PATH:./mash-Linux64-v2.0

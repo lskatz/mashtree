@@ -55,7 +55,7 @@ Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 
 ## Requirements
 
-* Mash >= v1.1
+* Mash >= v2.0
 * SQLite3
 * Perl 
   * multithreading 
