@@ -75,7 +75,7 @@ sub main{
 sub mashHistogram{
   my($fastq,$settings)=@_;
   my $sketch="$$settings{tempdir}/sketch.msh";
-  system("mash sketch -p $$settings{numcpus} -k $$settings{kmerlength} -b 1000000 -o $sketch $fastq >& /dev/null");
+  system("mash sketch -p $$settings{numcpus} -k $$settings{kmerlength} -b 1000000 -o $sketch $fastq > /dev/null 2>&1");
   die if $?;
   
   my @histogram;
