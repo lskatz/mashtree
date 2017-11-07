@@ -57,7 +57,7 @@ sub selectDb{
   }
 
   my $dbh=$self->{dbh};
-  $dbh->do(qq(
+  my $sth = $dbh->prepare(qq(
     CREATE TABLE DISTANCE(
       GENOME1     CHAR(255)    NOT NULL,
       GENOME2     CHAR(255)    NOT NULL,
@@ -65,6 +65,7 @@ sub selectDb{
       PRIMARY KEY(GENOME1,GENOME2)
     )) 
   );
+  $sth->execute();
 
   return 1;
 }
@@ -138,7 +139,8 @@ sub addDistances{
   
   # Run through all the insert statements
   for my $insertSQL(@insertSQL){
-    $dbh->do($insertSQL);
+    my $sth = $dbh->prepare($insertSQL);
+    $sth->execute();
     if($dbh->err()){
       die "ERROR: could not insert $distancesFile into the database with query\n  $insertSQL\n  ".$dbh->err();
     }
@@ -238,7 +240,14 @@ sub toString_matrix{
 
 sub toString_tsv{
   my($self,$genome,$sortBy)=@_;
+  $sortBy||="abc";
+  $genome||=[];
+
   my $dbh=$self->{dbh};
+
+  # Index the genome array
+  my %genome;
+  $genome{_truncateFilename($_)}=1 for(@$genome);
 
   my $str="";
 
@@ -246,14 +255,6 @@ sub toString_tsv{
     SELECT GENOME1,GENOME2,DISTANCE
     FROM DISTANCE
   );
-  if(@$genome){
-    $sql.="WHERE \n";
-    for(@$genome){
-      $sql.="GENOME1 LIKE '$_%' OR \n";
-    }
-    $sql=~s/\s*OR\s*$//;
-    $sql.="\n";
-  }
   if($sortBy eq 'abc'){
     $sql.="ORDER BY GENOME1,GENOME2 ASC";
   } elsif($sortBy eq 'rand'){
@@ -268,6 +269,12 @@ sub toString_tsv{
 
   my %distance;
   while(my @row=$sth->fetchrow_array()){
+    # If the parameter was given to filter genome names,
+    # do it here.
+    my $truncatedName1 = _truncateFilename($row[0]);
+    my $truncatedName2 = _truncateFilename($row[1]);
+    next if(@$genome && (!$genome{$truncatedName1} || !$genome{$truncatedName2}));
+
     $_=~s/^\s+|\s+$//g for(@row); # whitespace trim
     $str.=join("\t",@row)."\n";
     $distance{$row[0]}{$row[1]}=$row[2];
@@ -278,7 +285,13 @@ sub toString_tsv{
 
 sub toString_phylip{
   my($self,$genome,$sortBy)=@_;
+  $sortBy||="abc";
+  $genome||=[];
   my $dbh=$self->{dbh};
+
+  # Index the genome array
+  my %genome;
+  $genome{_truncateFilename($_)}=1 for(@$genome);
 
   my $str="";
 
@@ -300,9 +313,9 @@ sub toString_phylip{
   while(my @row=$sth->fetchrow_array()){
     # If the parameter was given to filter genome names,
     # do it here.
-    if(defined($genome)){
-      next if(!grep($row[0],@$genome));
-    }
+    my $truncatedName = _truncateFilename($row[0]);
+    next if(@$genome && !$genome{$truncatedName});
+
     push(@name,$row[0]);
     $maxGenomeLength=length($row[0]) if(length($row[0]) > $maxGenomeLength);
   }
