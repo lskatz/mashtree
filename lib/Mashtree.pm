@@ -12,6 +12,7 @@ use threads::shared;
 
 use lib dirname($INC{"Mashtree.pm"});
 use Bio::Matrix::IO;
+use Bio::TreeIO;
 
 our @EXPORT_OK = qw(
            logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames
@@ -187,17 +188,36 @@ sub sortNames{
   return @sorted;
 }
 
-# Create tree file with BioPerl
+# Create tree file with Quicktree but bioperl 
+# as a backup.
 sub createTreeFromPhylip{
   my($phylip,$outdir,$settings)=@_;
 
-  my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
-  my $matrix   = Bio::Matrix::IO->new(-format=>"phylip", -file=>$phylip)->next_matrix;
-  my $treeObj = $dfactory->make_tree($matrix);
-  open(TREE,">","$outdir/tree.dnd") or die "ERROR: could not open $outdir/tree.dnd: $!";
-  print TREE $treeObj->as_text("newick");
-  print TREE "\n";
-  close TREE;
+  my $treeObj;
+
+  my $quicktreePath=`which quicktree 2>/dev/null`;
+  # bioperl if there was an error with which quicktree
+  if($?){
+    logmsg "Creating tree with BioPerl";
+    my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
+    my $matrix   = Bio::Matrix::IO->new(-format=>"phylip", -file=>$phylip)->next_matrix;
+    $treeObj = $dfactory->make_tree($matrix);
+    open(TREE,">","$outdir/tree.dnd") or die "ERROR: could not open $outdir/tree.dnd: $!";
+    print TREE $treeObj->as_text("newick");
+    print TREE "\n";
+    close TREE;
+  }
+  # quicktree
+  else {
+    logmsg "Creating tree with QuickTree";
+    system("quicktree -in m $phylip > $outdir/tree.dnd.tmp");
+    die "ERROR with quicktree" if $?;
+    $treeObj=Bio::TreeIO->new(-file=>"$outdir/tree.dnd.tmp")->next_tree;
+    my $outtree=Bio::TreeIO->new(-file=>">$outdir/tree.dnd", -format=>"newick");
+    $outtree->write_tree($treeObj);
+
+    unlink("$outdir/tree.dnd.tmp");
+  }
 
   return $treeObj;
 

@@ -95,7 +95,6 @@ sub main{
 
   my $phylip = mashDistance($sketches,\@reads,$$settings{tempdir},$settings);
 
-  logmsg "Creating a NJ tree with BioPerl";
   my $treeObj = createTreeFromPhylip($phylip,$$settings{tempdir},$settings);
 
   print $treeObj->as_text('newick');
