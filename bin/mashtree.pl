@@ -291,9 +291,10 @@ sub mashDistance{
     $thr[$_]=threads->new(\&mashDist,$outdir,$threadArr[$_],$mshListFilename,$mashtreeDbFilename,$settings);
   }
 
-  logmsg "Joining $$settings{numthreads} threads";
   for(@thr){
+    logmsg "Waiting to join thread TID".$_->tid;
     my $distfiles=$_->join;
+    logmsg "Joined TID".$_->tid;
   }
 
   my $phylip = "$outdir/distances.phylip";
