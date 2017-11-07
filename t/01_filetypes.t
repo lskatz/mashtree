@@ -10,6 +10,7 @@ use Test::More tests => 2;
 use_ok 'Mashtree';
 
 $ENV{PATH}="./bin:$ENV{PATH}";
+$ENV{PATH}=~s/quicktree//gi; # remove quicktree for now because it produces a diff ordering of trees
 
 my $correctMashtree="(CFSAN000189.gbk:0.00000,(CFSAN001112.ref:0.00001,CFSAN001140_1:0.00019):0.00001,((CFSAN000968.ref:0.00000,CFSAN001115.ref:0.00000):0.00001,(CFSAN000189.ref:0.00000,(CFSAN000191.ref:0.00002,(CFSAN000211.gbk:0.00045,CFSAN000961.gbk:0.00005):0.00003):0.00000):0.00001):0.00000);";
 

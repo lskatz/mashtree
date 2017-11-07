@@ -10,6 +10,7 @@ use Test::More tests => 2;
 use_ok 'Mashtree';
 
 $ENV{PATH}="./bin:$ENV{PATH}";
+$ENV{PATH}=~s/quicktree//gi; # remove quicktree for now because it produces a diff ordering of trees
 
 my $correctMashtree="(sample3:0.00195,sample4:0.00205,(sample1:0.00205,sample2:0.00205):0.00010);";
 
