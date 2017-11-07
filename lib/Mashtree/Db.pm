@@ -283,21 +283,13 @@ sub toString_phylip{
   my $str="";
 
   # The way phylip is, I need to know the genome names
-  # a priori
+  # a priori. Get the genome names from the db.
   my @name;
   my $sql=qq(
     SELECT DISTINCT(GENOME1) 
     FROM DISTANCE 
+    ORDER BY GENOME1 ASC\n
   );
-  if(@$genome){
-    $sql.="WHERE \n";
-    for(@$genome){
-      $sql.="GENOME1 LIKE '$_%' OR \n";
-    }
-    $sql=~s/\s*OR\s*$//;
-    $sql.="\n";
-  }
-  $sql.="ORDER BY GENOME1 ASC\n";
   my $sth=$dbh->prepare($sql);
   my $rv=$sth->execute or die $DBI::errstr;
   if($rv < 0){
@@ -306,6 +298,11 @@ sub toString_phylip{
 
   my $maxGenomeLength=0;
   while(my @row=$sth->fetchrow_array()){
+    # If the parameter was given to filter genome names,
+    # do it here.
+    if(defined($genome)){
+      next if(!grep($row[0],@$genome));
+    }
     push(@name,$row[0]);
     $maxGenomeLength=length($row[0]) if(length($row[0]) > $maxGenomeLength);
   }
