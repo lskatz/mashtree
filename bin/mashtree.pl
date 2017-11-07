@@ -239,6 +239,7 @@ sub mashSketch{
       logmsg "WARNING: ".basename($fastq)." was already mashed.";
     } elsif(-s $fastq < 1){
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
+      next;
     } else {
       logmsg "Sketching $fastq";
       system("mash sketch -p $$settings{cpus_per_mash} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2");
