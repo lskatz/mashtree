@@ -96,9 +96,9 @@ sub addDistances{
   my $dbh=$self->{dbh};
   my $numInserted=0;   # how many are going to be inserted?
 
-  my $baseInsertSql="INSERT INTO DISTANCE VALUES";
-  my @insertSQL=();
-  my $insertSQL=$baseInsertSql;
+  my $insert = $dbh->prepare( "INSERT INTO DISTANCE VALUES ( ?, ?, ? )" );
+  my $autocommit = $dbh->{AutoCommit};
+  $dbh->{AutoCommit} = 0; # begin a new transaction
   open(my $fh, "<", $distancesFile) or die "ERROR: could not read $distancesFile: $!";
   my $query="";
   while(<$fh>){
@@ -115,36 +115,14 @@ sub addDistances{
     
     next if(defined($self->findDistance($query,$subject)));
 
+    $insert->execute( $query, $subject, $distance );
+    if ( $dbh->err() ) {
+        die "Error: could not insert $distancesFile into the database.\n";
+    }
     $numInserted++;
-    $insertSQL.=qq( ("$query", "$subject", $distance), );
-    
-    # Avoid going over the SQLITE_MAX_COMPOUND_SELECT limit in sqlite3
-    if($numInserted % 99 == 0){
-      $insertSQL=~s/\s*,\s*$//; # remove whitespace and comma from the end
-      push(@insertSQL, $insertSQL);
-      $insertSQL=$baseInsertSql;
-    }
   }
-
-  if($numInserted == 0){
-    return $numInserted;
-  }
-
-  # One last insert
-  if($insertSQL=~/VALUES.../){
-    $insertSQL=~s/\s*,\s*$//; # remove whitespace and comma from the end
-    push(@insertSQL, $insertSQL);
-    $insertSQL=$baseInsertSql;
-  }
-  
-  # Run through all the insert statements
-  for my $insertSQL(@insertSQL){
-    my $sth = $dbh->prepare($insertSQL);
-    $sth->execute();
-    if($dbh->err()){
-      die "ERROR: could not insert $distancesFile into the database with query\n  $insertSQL\n  ".$dbh->err();
-    }
-  }
+  $dbh->commit;
+  $dbh->{AutoCommit} = $autocommit;
 
   return $numInserted;
 }
@@ -157,10 +135,10 @@ sub findDistances{
   
   my $sth=$dbh->prepare(qq(SELECT GENOME2,DISTANCE 
     FROM DISTANCE 
-    WHERE GENOME1="$genome1"
+    WHERE GENOME1=?
     ORDER BY GENOME2
   ));
-  my $rv = $sth->execute() or die $DBI::errstr;
+  my $rv = $sth->execute( $genome1 ) or die $DBI::errstr;
   if($rv < 0){
     die $DBI::errstr;
   }
@@ -179,8 +157,8 @@ sub findDistance{
 
   my $dbh=$self->{dbh};
   
-  my $sth=$dbh->prepare(qq(SELECT DISTANCE FROM DISTANCE WHERE GENOME1="$genome1" AND GENOME2="$genome2"));
-  my $rv = $sth->execute() or die $DBI::errstr;
+  my $sth=$dbh->prepare(qq(SELECT DISTANCE FROM DISTANCE WHERE GENOME1=? AND GENOME2=?));
+  my $rv = $sth->execute( $genome1, $genome2 ) or die $DBI::errstr;
   if($rv < 0){
     die $DBI::errstr;
   }
