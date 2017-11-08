@@ -29,6 +29,9 @@ my %delta :shared=(); # change in amplitude for peak detection, for each fastq
 my $scriptDir=dirname $0;
 my $dbhLock :shared;  # Use this as a lock so that only one thread writes to the db at a time
 local $0=basename $0;
+if($0 eq 'mashtree.pl'){
+  logmsg "WARNING: the executable mashtree.pl is deprecated. Please switch to the mashtree executable (without the .pl).";
+}
 
 exit main();
 
