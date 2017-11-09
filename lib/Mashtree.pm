@@ -15,7 +15,7 @@ use Bio::Matrix::IO;
 use Bio::TreeIO;
 
 our @EXPORT_OK = qw(
-           logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames
+           logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames treeDist
            @fastqExt @fastaExt @bamExt @vcfExt @richseqExt @mshExt
            $MASHTREE_VERSION
          );
@@ -25,7 +25,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "0.27";
+our $VERSION = "0.28";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
@@ -221,6 +221,90 @@ sub createTreeFromPhylip{
 
   return $treeObj;
 
+}
+
+# Lee's implementation of a tree distance. The objective
+# is to return zero if two trees are the same.
+sub treeDist{
+  my($treeObj1,$treeObj2)=@_;
+
+  # If the tree objects are really strings, then make Bio::Tree::Tree objects
+  if(!ref($treeObj1)){
+    if(-e $treeObj1){ # if this is a file, get the contents
+      $treeObj1=`cat $treeObj1`;
+    }
+    $treeObj1=Bio::TreeIO->new(-string=>$treeObj1)->next_tree;
+  }
+  if(!ref($treeObj2)){
+    if(-e $treeObj2){ # if this is a file, get the contents
+      $treeObj2=`cat $treeObj2`;
+    }
+    $treeObj2=Bio::TreeIO->new(-string=>$treeObj2)->next_tree;
+  }
+  for($treeObj1,$treeObj2){
+    #$_->force_binary;
+  }
+  
+  # Get all leaf nodes so that they can be compared
+  my @nodes1=sort {$a->id cmp $b->id} grep{$_->is_Leaf} $treeObj1->get_nodes;
+  my @nodes2=sort {$a->id cmp $b->id} grep{$_->is_Leaf} $treeObj2->get_nodes;
+  my $numNodes=@nodes1;
+
+  # Test 1: are these the same nodes?
+  my $nodeString1=join(" ",map{$_->id} @nodes1);
+  my $nodeString2=join(" ",map{$_->id} @nodes2);
+  if($nodeString1 ne $nodeString2){
+    # TODO print out the differing nodes?
+    logmsg "ERROR: nodes are not the same in both trees!\n  $nodeString1\n  $nodeString2";
+    return ~0; #largest int
+  }
+
+  # Find the number of branches it takes to get to each node.
+  # Turn it into a Euclidean distance
+  my $euclideanDistance=0;
+  for(my $i=0;$i<$numNodes;$i++){
+    for(my $j=$i+1;$j<$numNodes;$j++){
+      my ($numBranches1,$numBranches2);
+
+      my $lca1=$treeObj1->get_lca($nodes1[$i],$nodes1[$j]);
+      my $lca2=$treeObj2->get_lca($nodes2[$i],$nodes2[$j]);
+      
+      # Distance in tree1
+      my $distance1=0;
+      my @ancestory1=$treeObj1->get_lineage_nodes($nodes1[$i]);
+      my @ancestory2=$treeObj1->get_lineage_nodes($nodes1[$j]);
+      for my $currentNode(@ancestory1){
+        $distance1++;
+        last if($currentNode eq $lca1);
+      }
+      for my $currentNode(@ancestory2){
+        $distance1++;
+        last if($currentNode eq $lca1);
+      }
+      
+      # Distance in tree2
+      my $distance2=0;
+      my @ancestory3=$treeObj2->get_lineage_nodes($nodes2[$i]);
+      my @ancestory4=$treeObj2->get_lineage_nodes($nodes2[$j]);
+      for my $currentNode(@ancestory3){
+        $distance2++;
+        last if($currentNode eq $lca2);
+      }
+      for my $currentNode(@ancestory4){
+        $distance2++;
+        last if($currentNode eq $lca2);
+      }
+
+      if($distance1 != $distance2){
+        logmsg "These two nodes do not have the same distance between trees: ".$nodes1[$i]->id." and ".$nodes1[$j]->id;
+      }
+
+      # Add up the Euclidean distance
+      $euclideanDistance+=($distance1 - $distance2) ** 2;
+    }
+  }
+  $euclideanDistance=sqrt($euclideanDistance);
+  return $euclideanDistance;
 }
 
 1; # gotta love how we we return 1 in modules. TRUTH!!!
