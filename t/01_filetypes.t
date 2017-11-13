@@ -17,5 +17,5 @@ my $correctMashtree="(CFSAN000189.gbk:0.00000,(CFSAN001112.ref:0.00001,CFSAN0011
 # Test to see if the correct tree is made
 my $mashtree=`mashtree --numcpus 1 t/filetypes/*`;
 chomp($mashtree);
-ok treeDist($mashtree,$correctMashtree) < 30, "Produce correct tree from mixed file types"
+ok treeDist($mashtree,$correctMashtree) < 11, "Produce correct tree from mixed file types";
 

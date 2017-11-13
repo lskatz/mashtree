@@ -271,8 +271,8 @@ sub treeDist{
       
       # Distance in tree1
       my $distance1=0;
-      my @ancestory1=$treeObj1->get_lineage_nodes($nodes1[$i]);
-      my @ancestory2=$treeObj1->get_lineage_nodes($nodes1[$j]);
+      my @ancestory1=reverse $treeObj1->get_lineage_nodes($nodes1[$i]);
+      my @ancestory2=reverse $treeObj1->get_lineage_nodes($nodes1[$j]);
       for my $currentNode(@ancestory1){
         $distance1++;
         last if($currentNode eq $lca1);
@@ -284,8 +284,8 @@ sub treeDist{
       
       # Distance in tree2
       my $distance2=0;
-      my @ancestory3=$treeObj2->get_lineage_nodes($nodes2[$i]);
-      my @ancestory4=$treeObj2->get_lineage_nodes($nodes2[$j]);
+      my @ancestory3=reverse $treeObj2->get_lineage_nodes($nodes2[$i]);
+      my @ancestory4=reverse $treeObj2->get_lineage_nodes($nodes2[$j]);
       for my $currentNode(@ancestory3){
         $distance2++;
         last if($currentNode eq $lca2);
@@ -307,5 +307,6 @@ sub treeDist{
   return $euclideanDistance;
 }
 
-1; # gotta love how we we return 1 in modules. TRUTH!!!
+1;
+
 
