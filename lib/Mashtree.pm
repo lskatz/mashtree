@@ -309,3 +309,11 @@ sub treeDist{
 
 1; # gotta love how we we return 1 in modules. TRUTH!!!
 
+__END__
+
+=head1 NAME
+
+Mashtree - Create a tree using Mash distances.
+
+=cut
+
