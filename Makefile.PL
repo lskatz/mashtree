@@ -14,6 +14,7 @@ my $preop =
 WriteMakefile1(
   NAME         => 'Mashtree',
   VERSION_FROM => 'lib/Mashtree.pm',
+  ABSTRACT_FROM => 'lib/Mashtree.pm',
   EXE_FILES    => [
     "bin/mashtree.pl",
     "bin/mashtree_wrapper.pl",

@@ -310,3 +310,11 @@ sub treeDist{
 1;
 
 
+__END__
+
+=head1 NAME
+
+Mashtree - Create a tree using Mash distances.
+
+=cut
+
