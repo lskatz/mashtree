@@ -41,7 +41,7 @@ WriteMakefile1(
     'Test::More'     => 0.47,
   },
   MIN_PERL_VERSION => '5.10.0',
-  LICENSE          => "GPLv3",
+  LICENSE          => "gpl_3",
   dist=>{
     COMPRESS => "gzip -9f",
     SUFFIX   => "gz",
