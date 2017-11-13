@@ -2,8 +2,10 @@
 
 use strict;
 use warnings;
+use Test::More tests => 2;
 
-use Test::More tests => 1;
+use lib './lib';
+use_ok 'Mashtree';
 
 # Is Mash installed?
 my $mash_is_missing = system("mash >/dev/null 2>&1");
