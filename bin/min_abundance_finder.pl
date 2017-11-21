@@ -55,7 +55,7 @@ sub main{
 
   # Where is the first valley most likely, given a range
   # of kmer sizes?
-  my $firstValley;
+  my $firstValley=0;
   my $mostVotes=max(values(%firstValleyVote));
   for my $bin(sort{$a<=>$b} keys(%firstValleyVote)){
     if($firstValleyVote{$bin}==$mostVotes){

@@ -12,6 +12,7 @@ use File::Basename qw/basename dirname fileparse/;
 use File::Copy qw/copy/;
 use POSIX qw/floor/;
 use List::Util qw/min max/;
+use Scalar::Util qw/looks_like_number/;
 
 use threads;
 use threads::shared;
@@ -369,11 +370,11 @@ sub determineMinimumDepth{
   rmdir $minAbundanceTempdir;
 
   # If there is no valley, return a default value
-  if(!defined $valley[1]){
+  if(!defined $valley[1] || !looks_like_number($valley[1]) || $valley[1] < 1){
     $delta{$fastq}=int($delta{$fastq}/2);
     if($delta{$fastq} > 10){
       logmsg "Trying again to determine a min depth with delta==$delta{$fastq} on $fastq";
-      return determineMinimumDepth(@_);
+      return determineMinimumDepth($fastq,$mindepth,$kmerlength,$settings);
     }
     logmsg "WARNING: no valleys were found! Reporting minimum kmer coverage as $defaultDepth.";
     return $defaultDepth;
@@ -381,7 +382,12 @@ sub determineMinimumDepth{
   
   # Discard the header but keep the first line
   my($minKmerCount, $countOfCounts)=split(/\t/,$valley[1]);
-  $minKmerCount=1 if(!defined($minKmerCount) || $minKmerCount < 1);
+  # force an "empty" value to zero
+  if(!defined($minKmerCount) || !looks_like_number($minKmerCount)){
+    $minKmerCount=0;
+  }
+  # However, the minimum count can't be zero, and so it is one.
+  $minKmerCount=1 if($minKmerCount < 1);
 
   logmsg "Setting the min depth as $minKmerCount for $fastq (delta==$delta{$fastq})";
 
