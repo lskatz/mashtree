@@ -18,5 +18,5 @@ my $correctMashtree="(((CFSAN000211.gbk:0.00045,CFSAN000961.gbk:0.00005):0.00004
 my $mashtree=`mashtree --min-depth 0 --numcpus 1 t/filetypes/*`;
 chomp($mashtree);
 my $dist=treeDist($mashtree,$correctMashtree);
-ok $dist < 9, "Minimum abundance filter test";
+ok $dist < 11, "Minimum abundance filter test";
 
