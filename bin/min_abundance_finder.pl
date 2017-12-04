@@ -53,15 +53,14 @@ sub main{
     $firstValleyVote{$firstValley}++;
   }
 
-  # Where is the first valley most likely, given a range
-  # of kmer sizes?
+
+  logmsg "For various values of k, valleys were found:";
   my $firstValley=0;
-  my $mostVotes=max(values(%firstValleyVote));
-  for my $bin(sort{$a<=>$b} keys(%firstValleyVote)){
-    if($firstValleyVote{$bin}==$mostVotes){
-      $firstValley=$bin;
-      last;
-    }
+  # Sort bins by their votes, highest to lowest
+  for my $bin(sort{$firstValleyVote{$b}<=>$firstValleyVote{$a}} keys(%firstValleyVote)){
+    my $value=$firstValleyVote{$bin};
+    $firstValley||=$bin; # set the valley to the first bin we come to
+    logmsg "  $bin: $value votes";
   }
 
   print join("\t",qw(kmer count))."\n";

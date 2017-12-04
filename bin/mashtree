@@ -362,15 +362,16 @@ sub determineMinimumDepth{
   # Run the min abundance finder to find the valleys
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
-  my @valley=`$scriptDir/min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}`;
+  my @valleyLines=`$scriptDir/min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}`;
   die "ERROR with min_abundance_finder.pl on $fastq: $!" if($?);
-  chomp(@valley);
+  chomp(@valleyLines);
   # Some cleanup of large files
   unlink $_ for(glob("$minAbundanceTempdir/*"));
   rmdir $minAbundanceTempdir;
 
   # If there is no valley, return a default value
-  if(!defined $valley[1] || !looks_like_number($valley[1]) || $valley[1] < 1){
+  #if(!defined $valleyLines[1] || !looks_like_number($valley[1]) || @valley < 1){
+  if(!defined $valleyLines[1] || @valleyLines < 1){
     $delta{$fastq}=int($delta{$fastq}/2);
     if($delta{$fastq} > 10){
       logmsg "Trying again to determine a min depth with delta==$delta{$fastq} on $fastq";
@@ -381,7 +382,7 @@ sub determineMinimumDepth{
   }
   
   # Discard the header but keep the first line
-  my($minKmerCount, $countOfCounts)=split(/\t/,$valley[1]);
+  my($minKmerCount, $countOfCounts)=split(/\t/,$valleyLines[1]);
   # force an "empty" value to zero
   if(!defined($minKmerCount) || !looks_like_number($minKmerCount)){
     $minKmerCount=0;
