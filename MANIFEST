@@ -1,4 +1,5 @@
 bin/mashtree.pl
+bin/mashtree
 bin/mashtree_wrapper.pl
 bin/min_abundance_finder.pl
 lib/Mashtree.pm
