@@ -63,7 +63,7 @@ sub main{
   die usage() if(@reads < 2);
 
   # Check for prereq executables.
-  for my $exe(qw(mash)){
+  for my $exe(qw(mash quicktree)){
     system("$exe -h > /dev/null 2>&1");
     die "ERROR: could not find $exe in your PATH" if $?;
   }

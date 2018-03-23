@@ -8,6 +8,8 @@ use ExtUtils::MakeMaker;
 # Some help from
 # http://blogs.perl.org/users/michal_wojciechowski/2011/11/github-friendly-readme-files-with-extutils-makemaker-and-module-build.html
 my $preop =
+  #'sed -i.bak "s/.5f/.10f/g" bin/quicktree-2.3/src/tree.c bin/quicktree-2.3/src/distancemat.c;' .
+  #'make -C bin/quicktree-2.3;' .
   'perldoc -uT $(VERSION_FROM) | tee $(DISTVNAME)/README.pod > README.pod;' .
   'pod2text README.pod | tee $(DISTVNAME)/README > README';
 

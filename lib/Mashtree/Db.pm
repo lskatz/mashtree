@@ -313,7 +313,7 @@ sub toString_phylip{
     my $distanceHash=$self->findDistances($name[$i]);
 
     for(my $j=0;$j<$numGenomes;$j++){
-      $str.=sprintf("%0.4f  ",$$distanceHash{$name[$j]});
+      $str.=sprintf("%0.10f  ",$$distanceHash{$name[$j]});
     }
     $str=~s/ +$/\n/; # replace that trailing whitespace with a newline
   }

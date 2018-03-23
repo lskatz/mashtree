@@ -61,10 +61,7 @@ Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
   * multithreading 
   * BioPerl library
   * `DBD::SQLite`
-
-### Optional Requirements
-
-* QuickTree - makes tree inference about 100x faster.
+* Quicktree.  **Note**: Quicktree version 2.3 has been redistributed in this repo.  This version of Quicktree has been modified to increase the precision from 5 digits to 10 digits.
 
 ## Installation
 
