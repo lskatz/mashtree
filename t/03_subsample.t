@@ -17,5 +17,8 @@ my $correctMashtree="(CFSAN001112.ref:0.00001,CFSAN001115.ref:0.00000,((((CFSAN0
 # Test to see if the correct tree is made
 my $mashtree=`mashtree --min-depth 0 --numcpus 1 t/filetypes/*`;
 chomp($mashtree);
-is $correctMashtree, $mashtree, "Correct min_abundance_filter tree";
+#is $correctMashtree, $mashtree, "Correct min_abundance_filter tree";
+
+my $treedist=treeDist($correctMashtree, $mashtree);
+ok $treedist < 1, "Correct min_abundance_filter tree (dist: $treedist)";
 

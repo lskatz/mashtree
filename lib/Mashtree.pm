@@ -25,7 +25,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "0.30";
+our $VERSION = "0.31";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
@@ -143,7 +143,7 @@ sub distancesToPhylip{
     } else {
       my ($reference,$distance)=split(/\t/,$_);
       $reference=_truncateFilename($reference,$settings);
-      $distance=sprintf("%0.8f",$distance);
+      #$distance=sprintf("%0.8f",$distance);
       $m[$name{$query}][$name{$reference}]=$distance;
       $m[$name{$reference}][$name{$query}]=$distance;
     }
