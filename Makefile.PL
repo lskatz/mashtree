@@ -16,7 +16,7 @@ WriteMakefile1(
   VERSION_FROM => 'lib/Mashtree.pm',
   ABSTRACT_FROM => 'lib/Mashtree.pm',
   EXE_FILES    => [
-    "bin/mashtree.pl",
+    "bin/mashtree",
     "bin/mashtree_wrapper.pl",
     "bin/min_abundance_finder.pl",
   ],
