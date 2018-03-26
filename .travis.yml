@@ -11,9 +11,8 @@ before_install:
   #- "yes no | cpanm --force --notest DBI"
   - wget https://github.com/marbl/Mash/releases/download/v1.1.1/mash-Linux64-v1.1.1.tar.gz
   - tar zxvf mash-Linux64-v1.1.1.tar.gz
-#  - "cpanm Bio::Tree::DistanceFactory"
-#  - "cpanm Bio::Matrix::IO"
-#  - "cpanm Bio::Tree::Statistics"
-#  - "cpanm DBD::SQLite"
+  - git clone https://github.com/khowe/quicktree.git
+  - make -C quicktree
 before_script:
   - PATH=$PATH:./mash-Linux64-v1.1.1
+  - export PATH=$PATH:./quicktree
