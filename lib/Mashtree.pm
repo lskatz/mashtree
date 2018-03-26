@@ -144,7 +144,6 @@ sub distancesToPhylip{
       my ($reference,$distance)=split(/\t/,$_);
       $reference=_truncateFilename($reference,$settings);
       $distance=sprintf("%0.10f",$distance);
-      logmsg $distance."====phylip=";
       $m[$name{$query}][$name{$reference}]=$distance;
       $m[$name{$reference}][$name{$query}]=$distance;
     }
