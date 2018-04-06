@@ -83,6 +83,9 @@ sub main{
   my %seen;
   my @tmp;
   for my $reads(@ARGV){
+    if(!-e $reads){
+      die "ERROR: I could not find reads path at $reads";
+    }
     my $basename=basename($reads);
     if($seen{$basename}++){
       logmsg "Skipping $reads: already seen $basename";
@@ -350,7 +353,7 @@ sub determineMinimumDepth{
   my($fastq,$mindepth,$kmerlength,$settings)=@_;
 
   $delta{$fastq}//=10;
-  my $defaultDepth=2; # if no valley is detected
+  my $defaultDepth=2; # if no valley is detected # TODO should it be five?
 
   return $mindepth if($mindepth > 0);
 
@@ -359,7 +362,7 @@ sub determineMinimumDepth{
   # Run the min abundance finder to find the valleys
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
-  my @valleyLines=`$scriptDir/min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}`;
+  my @valleyLines=`min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}`;
   die "ERROR with min_abundance_finder.pl on $fastq: $!" if($?);
   chomp(@valleyLines);
   # Some cleanup of large files
