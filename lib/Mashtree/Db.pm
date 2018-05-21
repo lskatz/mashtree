@@ -235,7 +235,8 @@ sub toString_matrix{
   for(my $i=0;$i<$numNames;$i++){
     $str.=$name[$i];
     for(my $j=0;$j<$numNames;$j++){
-      $str.="\t".$distance{$name[$i]}{$name[$j]};
+      my $dist = $distance{$name[$i]}{$name[$j]} || $distance{$name[$j]}{$name[$i]};
+      $str.="\t$dist";
     }
     $str.="\n";
   }
