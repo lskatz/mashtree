@@ -29,6 +29,7 @@ use Bio::SeqIO;
 my %delta :shared=(); # change in amplitude for peak detection, for each fastq
 my $scriptDir=dirname $0;
 my $dbhLock :shared;  # Use this as a lock so that only one thread writes to the db at a time
+my $abundanceFinderLock :shared; # a lock to limit min abundance finder instances
 local $0=basename $0;
 
 exit main();
@@ -245,7 +246,8 @@ sub mashSketch{
       next;
     } else {
       logmsg "Sketching $fastq";
-      system("mash sketch -p $$settings{cpus_per_mash} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2");
+      my $sketchCommand="mash sketch -p $$settings{cpus_per_mash} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2";
+      system($sketchCommand);
       die if $?;
     }
 
@@ -362,7 +364,16 @@ sub determineMinimumDepth{
   # Run the min abundance finder to find the valleys
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
-  my @valleyLines=`min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}`;
+  my $minAbundanceCommand="min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
+  lock($abundanceFinderLock); logmsg "DEBUG: running single mode for $fastq";
+  my @valleyLines=`$minAbundanceCommand`;
+  # If there is an error, just try running one at a time.
+  # I am not sure why there is a seg fault sometimes when
+  # more than one are running at the same time though.
+  #if($?){
+  #  lock($abundanceFinderLock);
+  #  @valleyLines=`$minAbundanceCommand`;
+  #}
   die "ERROR with min_abundance_finder.pl on $fastq: $!" if($?);
   chomp(@valleyLines);
   # Some cleanup of large files
