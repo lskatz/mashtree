@@ -102,6 +102,12 @@ I'm not sure _why_ you'd want to uninstall Mashtree but here is how you would cl
 *  Mash: http://mash.readthedocs.io
 *  BioPerl: http://bioperl.org
 
+## Citation
+
+The paper is in preparation but for now, this is a valid citation:
+
+Katz, L. S., Griswold, T., & Carleton, H. A. (2017, October 8-11). _Generating WGS Trees with Mashtree_. Poster presented at the American Society for Microbiology Conference on Rapid Applied Microbial Next-Generation Sequencing and Bioinformatic Pipelines, Washington, DC. 
+
 ## GitHub stickers for Mashtree
 
 [![Build Status](https://travis-ci.org/lskatz/mashtree.svg?branch=master)](https://travis-ci.org/lskatz/mashtree)
