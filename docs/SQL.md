@@ -30,6 +30,26 @@ The database file is `distances.sqlite`. The scheme is very simple with three fi
     PNUSAL003713|PNUSAL003568|0.0764902
     PNUSAL003713|PNUSAL003827|0.0819654
 
+### How many distances are there in the database?
+
+    sqlite3 ./mashtree.tmp/distances.sqlite "SELECT COUNT(*) FROM DISTANCE"
+
+### What is the largest distance recorded?
+
+    sqlite3 ./mashtree.tmp/distances.sqlite "SELECT MAX(DISTANCE) FROM DISTANCE"
+
+### What is the largest distance recorded for my genome?
+
+For this query and similar queries, you should filter by GENOME2 as well to have a complete answer.
+
+    sqlite3 ./mashtree.tmp/distances.sqlite "SELECT MAX(DISTANCE) FROM DISTANCE WHERE GENOME1 = 'PNUSAL001027'"
+    
+### What is the smallest distance recorded for my genome?
+
+For this query, we have to exclude self vs self
+
+    sqlite3 ./mashtree.tmp/distances.sqlite "SELECT MIN(DISTANCE) FROM DISTANCE WHERE GENOME1 = 'PNUSAL001027' AND GENOME2 != GENOME1"
+
 ## Writing to the database
 
 Not recommended but what the heck
