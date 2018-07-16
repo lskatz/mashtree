@@ -37,8 +37,9 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help threshold|cutoff=f outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sketch-size=i version)) or die $!;
+  GetOptions($settings,qw(help threshold|cutoff=f outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sketch-size=i version nonzero=f)) or die $!;
   $$settings{numcpus}||=1;
+  $$settings{nonzero}||=1e-99;
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
 
   # Mash-specific options
@@ -98,7 +99,6 @@ sub main{
   my $clustering = clusterDijkstra($tsv,$settings);
 
   for my $clusterArr(sort {$a cmp $b} values(%$clustering)){
-    next if(@$clusterArr < 2);
     print join("\t",@$clusterArr)."\n";
   }
   return 0;
@@ -116,37 +116,47 @@ sub clusterDijkstra{
     chomp;
     my($g1,$g2,$dist)=split /\t/;
     next if($g1 eq $g2);
+    $dist=$$settings{nonzero} if(!$dist);
     $graph->node({id=>$g1});
     $graph->node({id=>$g2});
     $graph->edge({sourceID=>$g1,targetID=>$g2,weight=>$dist});
   }
   close $tsvFh;
 
-  logmsg "Calculating greedy clusters";
+  logmsg "Calculating clusters";
   my @genome=sort {$a cmp $b} map {$$_{id}} $graph->nodeList;
   my $numGenomes=@genome;
   for(my $i=0;$i<$numGenomes;$i++){
     # Is this genome $i close to anything?
     logmsg "  $genome[$i]";
-    my $was_clustered=0;
+    my $closestGenome="";
+    my $closestDist=0;
     for(my $j=$i+1;$j<$numGenomes;$j++){
-      my %solution=(originID=>$genome[$i], destinationID=>$genome[$j]);
-      $graph->shortestPath(\%solution);
-      my $dist=$solution{weight};
+      my $dist=0; # default value before getting defined
+      my $edgeHash=$graph->edge({sourceID=>$genome[$i],targetID=>$genome[$j]});
+      if(defined($edgeHash)){
+        $dist=$$edgeHash{weight};
+      } else {
+        my %solution=(originID=>$genome[$i], destinationID=>$genome[$j]);
+        $graph->shortestPath(\%solution);
+        $dist=$solution{weight};
+      }
 
       # Don't record this as a cluster if it isn't close
       next if($dist > $$settings{threshold});
       next if($dist==0); # zero indicates "path not found" in Graph::Dijkstra
-      
-      # Initialize the cluster with seed genome $j
-      $C{$genome[$j]}||=[$genome[$j]];
-      # Add genome $i
-      push(@{ $C{$genome[$j]} }, $genome[$i]);
-      $was_clustered=1;
-      last;
+
+      $closestGenome=$genome[$j];
+      $closestDist=$dist;
     }
 
-    if(!$was_clustered){
+    if($closestGenome){
+      # Initialize the cluster with seed genome $j
+      $C{$closestGenome}||=[$closestGenome];
+      # Add genome $i
+      push(@{ $C{$closestGenome} }, $genome[$i]);
+    } else {
+      logmsg "not clustered: $genome[$i]";
       $C{$genome[$i]}||=[$genome[$i]];
     }
   }
@@ -377,7 +387,10 @@ sub mashDist{
   # the database.  Only lock it once per thread, optimally.
   if($numQueries > 0){
     lock($dbhLock);
+    logmsg "Adding $numQueries distance sets to the database";
     $mashtreeDb->addDistances($distFile);
+  } else {
+    logmsg "Did not add any distance sets to the database in this thread";
   }
 
   # I think that the thread disconnects the db when
@@ -459,7 +472,8 @@ sub usage{
   --version                 Display the version and exit
   --threshold          0.1  Mash distance threshold for cluster inclusion.
                             Genomes with this value or less will be
-                            clustered.
+                            clustered. Higher number==more members per
+                            cluster. Lower number==fewer.
 
   MASH SKETCH OPTIONS
   --genomesize         5000000
