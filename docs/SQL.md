@@ -1,7 +1,7 @@
 # SQL database
 
 Mashtree saves distances in an SQLite database in the temporary folder.
-This folder is automatically deleted at the end of the run unless `--tempdir` is supplied.
+This folder and the SQLite database is saved if `--tempdir` is supplied.
 This database can be read using SQLite if saved.
 
 ## SQLite3
