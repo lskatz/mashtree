@@ -97,6 +97,10 @@ I'm not sure _why_ you'd want to uninstall Mashtree but here is how you would cl
 
     $ cpanm --uninstall Mashtree --local-lib=$HOME
 
+## Further documentation
+
+For more information please see the [docs folder](docs/)
+
 ## References
 
 *  Mash: http://mash.readthedocs.io
