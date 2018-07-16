@@ -39,6 +39,7 @@ WriteMakefile1(
     'Bio::Tree::DistanceFactory'=> 0,
     'Bio::Tree::Statistics'=> 0,
     #'Bio::Kmer'      => 0.19,
+    'Graph::Dijkstra'=> 0.70,
   },
   BUILD_REQUIRES => {
     'Test::More'     => 0.47,
