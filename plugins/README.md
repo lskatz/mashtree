@@ -12,3 +12,5 @@ overwriting the DISTANCE table is not allowed.
 This plugin optimizes distances between all genomes. Currently
 only uses Dijkstra's algorithm but potentially could be expanded.
 
+    Usage: mashtree_optimize.pl [options] mashtree.sqlite
+
