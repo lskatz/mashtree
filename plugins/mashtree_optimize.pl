@@ -34,16 +34,15 @@ sub main{
   $$settings{nonzero}||=1e-99;
   $$settings{threshold}||=0.1;
 
+  my($dbFile) = @ARGV;
+  die usage() if($$settings{help} || !$dbFile);
+
   if(!$$settings{method}){
     $$settings{method}="dijkstra";
     logmsg "Setting method to dijkstra.";
   }
   $$settings{method}=lc($$settings{method});
   $$settings{tempdir}||=tempdir("MASHTREE_OPTIMIZE_$$settings{method}.XXXXXX",CLEANUP=>1,TMPDIR=>1);
-
-  my($dbFile) = @ARGV;
-
-  die usage() if($$settings{help} || !$dbFile);
 
   if(!-e $dbFile){
     die "ERROR: could not find database file $dbFile";
@@ -182,7 +181,7 @@ sub optimizeDb_dijkstra{
 
 sub usage{
   "Optimizes a mashtree database using different methods
-  Usage: $0 mashtree.sqlite new.sqlite
+  Usage: $0 [options] mashtree.sqlite
 
   Note: only one optimization is available at this time
 
