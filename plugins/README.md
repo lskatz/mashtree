@@ -8,7 +8,7 @@ overwriting the DISTANCE table is not allowed.
 For more information on the standard database, please see
 [the documentation](../docs/SQL.md).
 
-## Individual synopses
+## Synopses for individual plugins
 
 ### mashtree_optimize
 

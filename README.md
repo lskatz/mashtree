@@ -101,6 +101,8 @@ I'm not sure _why_ you'd want to uninstall Mashtree but here is how you would cl
 
 For more information please see the [docs folder](docs/)
 
+For more information on plugins, see the [plugins folder](plugins).
+
 ## References
 
 *  Mash: http://mash.readthedocs.io
