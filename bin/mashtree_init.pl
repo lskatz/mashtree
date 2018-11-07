@@ -245,7 +245,7 @@ sub mashSketch{
       next;
     } else {
       logmsg "Sketching $fastq";
-      my $sketchCommand="mash sketch -p $$settings{cpus_per_mash} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2";
+      my $sketchCommand="mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2";
       system($sketchCommand);
       die if $?;
     }
