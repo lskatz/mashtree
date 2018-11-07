@@ -214,6 +214,13 @@ sub mashSketch{
       ($fileName,$filePath,$fileExt)=fileparse($tmpfasta, @fastaExt);
     }
 
+    my $outPrefix="$sketchDir/".basename($fastq, @mshExt);
+    if(-e "$outPrefix.msh"){
+      logmsg "already mashed: $fastq. Skipping.";
+      push(@msh,"$outPrefix.msh");
+      next;
+    }
+
     # Do different things depending on fastq vs fasta
     my $sketchXopts="";
     if(grep {$_ eq $fileExt} @fastqExt){
@@ -227,8 +234,6 @@ sub mashSketch{
       logmsg "WARNING: I could not understand what kind of file this is by its extension ($fileExt): $fastq";
     }
       
-    my $outPrefix="$sketchDir/".basename($fastq, @mshExt);
-
     # See if the user already mashed this file locally
     if(-e "$fastq.msh"){
       logmsg "Found locally mashed file $fastq.msh. I will use it.";
@@ -246,7 +251,7 @@ sub mashSketch{
       next;
     } else {
       logmsg "Sketching $fastq";
-      my $sketchCommand="mash sketch -p $$settings{cpus_per_mash} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2";
+      my $sketchCommand="mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2";
       system($sketchCommand);
       die if $?;
     }
@@ -364,8 +369,9 @@ sub determineMinimumDepth{
   # Run the min abundance finder to find the valleys
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
-  my $minAbundanceCommand="min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
-  lock($abundanceFinderLock); logmsg "DEBUG: running single mode for $fastq";
+  #my $minAbundanceCommand="min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
+  my $minAbundanceCommand="min_abundance_finder.pl --numcpus $$settings{numcpus} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
+  lock($abundanceFinderLock); logmsg "DEBUG: running single mode for $fastq with $$settings{numcpus} cpus in the single thread";
   my @valleyLines=`$minAbundanceCommand`;
   # If there is an error, just try running one at a time.
   # I am not sure why there is a seg fault sometimes when
