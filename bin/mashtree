@@ -36,7 +36,7 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version)) or die $!;
+  GetOptions($settings,qw(help outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -102,8 +102,15 @@ sub main{
 
   my $treeObj = createTreeFromPhylip($phylip,$$settings{tempdir},$settings);
 
-  print $treeObj->as_text('newick');
-  print "\n";
+  # Write the tree
+  if($$settings{outtree}){
+    open(my $treeFh, ">", $$settings{outtree}) or die "ERROR writing tree to $$settings{outtree}: $!";
+    print $treeFh $treeObj->as_text('newick');
+    close $treeFh
+  } else {
+    print $treeObj->as_text('newick');
+    print "\n";
+  }
 
   return 0;
 }
@@ -427,6 +434,9 @@ sub usage{
   --numcpus            1    This script uses Perl threads.
   --outmatrix          ''   If specified, will write a distance matrix
                             in tab-delimited format
+  --outtree                 If specified, the tree will be written to 
+                            this file and not to stdout. Log messages
+                            will still go to stderr.
   --version                 Display the version and exit
 
   TREE OPTIONS
