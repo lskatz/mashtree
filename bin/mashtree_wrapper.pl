@@ -40,6 +40,8 @@ sub main{
   mkdir($$settings{tempdir}) if(!-d $$settings{tempdir});
   $$settings{numcpus}||=1;
 
+  logmsg "WARNING this script is no longer maintained";
+
   logmsg "Temporary directory will be $$settings{tempdir}";
 
   die usage() if($$settings{help});
