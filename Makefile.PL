@@ -17,6 +17,7 @@ WriteMakefile1(
   NAME         => 'Mashtree',
   VERSION_FROM => 'lib/Mashtree.pm',
   ABSTRACT_FROM => 'lib/Mashtree.pm',
+  AUTHOR => q{Lee S. Katz <gzu2@cdc.gov>},
   EXE_FILES    => [
     "bin/mashtree",
     "bin/mashtree_wrapper.pl",
