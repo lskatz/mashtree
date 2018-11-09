@@ -349,7 +349,7 @@ sub determineMinimumDepth{
   # Run the min abundance finder to find the valleys
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
-  my $minAbundanceCommand="min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
+  my $minAbundanceCommand="min_abundance_finder.pl $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
   lock($abundanceFinderLock); logmsg "DEBUG: running single mode for $fastq";
   my @valleyLines=`$minAbundanceCommand`;
   # If there is an error, just try running one at a time.
