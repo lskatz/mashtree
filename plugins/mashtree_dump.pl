@@ -23,14 +23,29 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version)) or die $!;
+  GetOptions($settings,qw(help tempdir=s numcpus=i)) or die $!;
   $$settings{numcpus}||=1;
-  $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
+  $$settings{tempdir}||=tempdir("MASHTREE_DUMP.XXXXXX",CLEANUP=>1,TMPDIR=>1);
 
   my($db)=@ARGV;
+  die usage() if($$settings{help} || !$db);
 
   my $mashdb = Mashtree::Db->new($db);
-  print Dumper {$mashdb->toString('',"tsv")};
+  my %distances = $mashdb->toString('',"tsv");
+  my @genome = keys(%distances);
+  while(my($g1,$distances)=each(%distances)){
+    print $g1;
+    for my $g2(@genome){
+      my $dist;
+      if($g1 eq $g2){
+        $dist = 0;
+      } else {
+        $dist = $distances{$g1}{$g2} || $distances{$g2}{$g1} || ".";
+      }
+      print "\t$dist";
+    }
+    print "\n";
+  }
 
   return 0;
 }
