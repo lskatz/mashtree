@@ -19,13 +19,13 @@ END{unlink($db);}
 
 my $correctMashtree="(sample1:0.00210,sample2:0.00204,(sample3:0.00196,sample4:0.00207):0.00005);";
 
-# Test to see if the correct tree is made
-END{unlink "lambdadist.tsv";}
-
-system("mashtree_init.pl --numcpus 1 --outfile mash.sqlite t/lambda/sample*.fastq.gz");
+system("mashtree_init.pl $db");
 is $?, 0, "Ran mashtree_init.pl";
 
-system("mashtree_optimize.pl mash.sqlite");
+system("mashtree_mash.pl --numcpus 1 $db t/lambda/sample*.fastq.gz");
+is $?, 0, "Ran mashtree_init.pl";
+
+system("mashtree_optimize.pl $db");
 is $?, 0, "Ran mashtree_optimize.pl";
 
 system("mashtree_dump.pl $db");
