@@ -16,7 +16,7 @@ use File::Basename qw/basename fileparse/;
 use File::Temp qw/tempdir/;
 use List::Util qw/max/;
 use IO::Uncompress::Gunzip qw/gunzip/;
-#use Bio::Kmer;
+use Bio::Kmer;
 
 use threads;
 use Thread::Queue;
@@ -48,7 +48,10 @@ sub main{
   my %firstValleyVote;
   for(my $i=9; $i<=23; $i+=2){
     $$settings{kmerlength}=$i;
-    my $histogram=mashHistogram($fastq,$settings);
+    logmsg "Counting kmers for $i";
+    my $kmerCounter = Bio::Kmer->new($fastq,{numcpus=>$$settings{numcpus},kmerlength=>$i,sample=>1});
+    my $histogram = $kmerCounter->histogram();
+    #my $histogram=mashHistogram($fastq,$settings);
     my $tmp=findThePeaksAndValleys($histogram,$$settings{delta},$settings);
     my $firstValley=$$tmp{valleys}[0][0] || next;
     $firstValleyVote{$firstValley}++;
@@ -89,7 +92,7 @@ sub main{
 sub mashHistogram{
   my($fastq,$settings)=@_;
   my $sketch="$$settings{tempdir}/sketch.msh";
-  system("mash sketch -k $$settings{kmerlength} -m 2 -o $sketch $fastq > /dev/null 2>&1");
+  system("mash sketch -k $$settings{kmerlength} -m 3 -o $sketch $fastq > /dev/null 2>&1");
   die if $?;
   
   my @histogram;
