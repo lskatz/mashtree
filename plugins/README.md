@@ -11,6 +11,15 @@ the database.
 For more information on the standard database, please see
 [the documentation](../docs/SQL.md).
 
+## Example workflow
+
+The most basic workflow is to initialize the database, run
+Mash and find distances, and then print the tree.
+
+    mashtree_init.pl lambda.sqlite
+    mashtree_mash lambda.sqlite t/lambda/*.fastq.gz
+    mashtree_tree lambda.sqlite
+
 ## Synopses for individual plugins
 
 Run any plugin with `--help` for usage.
