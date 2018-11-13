@@ -13,10 +13,29 @@ For more information on the standard database, please see
 
 ## Synopses for individual plugins
 
+Run any plugin with `--help` for usage.
+
+### mashtree\_init
+
+initialize an empty mashtree database
+
+### mashtree\_mash
+
+Run mash on genomes and insert their distances into the database
+
+### mashtree\_dump
+
+Dump distances from a mashtree database.  Note: you can also run
+`sqlite3 file.sqlite .dump` to view raw data.
+
 ### mashtree\_optimize
 
-This plugin optimizes distances between all genomes. Currently
+This plugin finds and estimates distances between all genomes. Currently
 only uses Dijkstra's algorithm but potentially could be expanded.
 
     Usage: mashtree_optimize.pl [options] mashtree.sqlite
+
+### mashtree\_tree
+
+Calculate and print the tree
 

@@ -49,6 +49,7 @@ sub main{
   }
 
   optimizeDb($dbFile,$$settings{method},$settings);
+  saveOptimizations($dbFile,$settings);
 
   return 0;
 }
@@ -80,10 +81,11 @@ sub optimizeDb_dijkstra{
   });
 
   logmsg "Reading the database";
-  my $sth = $dbh->prepare(qq(SELECT GENOME1,GENOME2,DISTANCE
+  my $sth = $dbh->prepare(qq(
+    SELECT GENOME1,GENOME2,DISTANCE
     FROM DISTANCE
     WHERE GENOME1 != GENOME2
-    ));
+  ));
   my $rv = $sth->execute() or die $DBI::errstr;
   if($rv < 0){
     die "ERROR: no distances were found in the database $db";
@@ -140,17 +142,25 @@ sub optimizeDb_dijkstra{
   logmsg "Optimizing $numGenomes genomes";
   for(my $i=0;$i<$numGenomes;$i++){
     logmsg "Optimizing $genome[$i] (".($i+1)."/$numGenomes)";
-    for(my $j=$i+1;$j<$numGenomes;$j++){
+    for(my $j=$i;$j<$numGenomes;$j++){
       # Sort the genome names so that we only store the pair once
       # in a predictable fashion.
       my($G1,$G2)=sort{$a cmp $b} ($genome[$i],$genome[$j]);
       my %solution=(originID=>$G1, destinationID=>$G2);
-      $graph->shortestPath(\%solution);
-      if(!$solution{edges}){
-        logmsg "WARNING: could not find distance between $G1 and $G2. Setting to large INT.";
-        $solution{weight}= ~0; # largest int
-        $solution{edges}=[];
+      if($G1 eq $G2){
+        $solution{weight}=0;
+      } else {
+        $graph->shortestPath(\%solution);
       }
+      #if(!$solution{edges}){
+      #  if($G1 eq $G2){
+      #    $solution{weight} = 0;
+      #  } else {
+      #    logmsg "WARNING: could not find distance between $G1 and $G2. Setting to large INT.";
+      #    $solution{weight}= ~0; # largest int
+      #  }
+      #  $solution{edges}=[];
+      #}
 
       $distBuffer{$G1}{$G2}=$solution{weight};
       $distancesCounter++;
@@ -176,7 +186,33 @@ sub optimizeDb_dijkstra{
     }
   }
   $dbh->commit();
-   
+  #system("sqlite3 $db .dump");
+}
+
+sub saveOptimizations{
+  my($dbFile, $settings)=@_;
+
+  my $dbh = DBI->connect("dbi:SQLite:dbname=$dbFile","","",{
+      RaiseError => 1,
+      AutoCommit => 0,
+  });
+
+  my $dropSth = $dbh->prepare("
+    ALTER TABLE DISTANCE
+    RENAME TO DISTANCE_BACKUP
+  ");
+  $dropSth->execute() or die "ERROR dropping table DISTANCE: ".$DBI::errstr;
+
+  my $alterSth = $dbh->prepare("
+    ALTER TABLE OPTIMIZED_DISTANCE
+    RENAME TO DISTANCE
+  ");
+  $alterSth->execute() or die "ERROR renaming table OPTIMIZED_DISTANCE to DISTANCE: ".$DBI::errstr;
+
+  $dbh->commit();
+  #system("sqlite3 $dbFile .dump");
+
+  return 1;  
 }
 
 sub usage{

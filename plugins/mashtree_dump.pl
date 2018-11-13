@@ -33,6 +33,7 @@ sub main{
   my $mashdb = Mashtree::Db->new($db);
   my %distances = $mashdb->toString('',"tsv");
   my @genome = keys(%distances);
+  print join("\t",".",@genome)."\n";
   while(my($g1,$distances)=each(%distances)){
     print $g1;
     for my $g2(@genome){
