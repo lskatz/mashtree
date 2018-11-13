@@ -13,6 +13,7 @@ use threads::shared;
 use lib dirname($INC{"Mashtree.pm"});
 use Bio::Matrix::IO;
 use Bio::TreeIO;
+use Bio::Tree::DistanceFactory;
 
 our @EXPORT_OK = qw(
            logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames treeDist

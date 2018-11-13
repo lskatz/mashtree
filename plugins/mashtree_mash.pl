@@ -64,12 +64,12 @@ sub main{
   my($db, @reads);
   for(@ARGV){
     die "ERROR: could not find $_" if(!-e $_);
-    my(undef, undef, $readsExt) = fileparse(@reads,($fastq,@fastqExt,@fastaExt,@richseqExt,@mshExt));
+    my(undef, undef, $readsExt) = fileparse($_,(@fastqExt,@fastaExt,@richseqExt,@mshExt));
     if($readsExt){
       push(@reads, $_);
     } else {
       if($db){
-        die "ERROR: only one database file allowed. Both were given: $db, $_";
+        die "ERROR: only one database file allowed. Both were given as arguments to $0: $db, $_";
       }
       $db = $_;
     }
@@ -93,7 +93,7 @@ sub main{
 
   my %seen;
   my @tmp;
-  for my $reads(@ARGV){
+  for my $reads(@reads){
     if(!-e $reads){
       die "ERROR: I could not find reads path at $reads";
     }
@@ -278,7 +278,7 @@ sub mashDistance{
 
   # Make a temporary file with one line per mash file.
   # Helps with not running into the max number of command line args.
-  my $mshListFilename="$outdir/mshList.txt";
+  my $mshListFilename="$$settings{tempdir}/mshList.txt";
   open(my $mshListFh,">",$mshListFilename) or die "ERROR: could not write to $mshListFilename: $!";
   for(@$mshList){
     print $mshListFh $_."\n";
@@ -301,7 +301,7 @@ sub mashDistance{
   # Initialize the threads
   my @thr;
   for(0..$$settings{numthreads}-1){
-    $thr[$_]=threads->new(\&mashDist,$outdir,$threadArr[$_],$mshListFilename,$mashtreeDbFilename,$settings);
+    $thr[$_]=threads->new(\&mashDist,$$settings{tempdir},$threadArr[$_],$mshListFilename,$dbFilename,$settings);
   }
 
   for(@thr){
@@ -310,7 +310,7 @@ sub mashDistance{
     logmsg "Joined TID".$_->tid;
   }
 
-  return $mashtreeDbFilename;
+  return $dbFilename;
 }
 
 # Individual mash distance
