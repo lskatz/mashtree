@@ -42,7 +42,7 @@ sub main{
     logmsg "Setting method to dijkstra.";
   }
   $$settings{method}=lc($$settings{method});
-  $$settings{tempdir}||=tempdir("MASHTREE_OPTIMIZE_$$settings{method}.XXXXXX",CLEANUP=>1,TMPDIR=>1);
+  $$settings{tempdir}||=tempdir("MASHTREE_GUESS_$$settings{method}.XXXXXX",CLEANUP=>1,TMPDIR=>1);
 
   if(!-e $dbFile){
     die "ERROR: could not find database file $dbFile";
@@ -216,12 +216,12 @@ sub saveOptimizations{
 }
 
 sub usage{
-  "Optimizes a mashtree database using different methods
+  "Estimates distances for unknown values in a mashtree database using different methods
   Usage: $0 [options] mashtree.sqlite
 
   Note: only one optimization is available at this time
 
-  --method   Dijkstra   Optimize distances using Dijkstra's algorithm
+  --method   Dijkstra   Estimate distances using Dijkstra's algorithm
   "
 }
 

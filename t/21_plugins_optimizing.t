@@ -18,7 +18,7 @@ my $db="mash.sqlite";
 END{unlink($db);}
 
 my $correctMashtree="(sample1:0.00210,sample2:0.00204,(sample3:0.00196,sample4:0.00207):0.00005);";
-my $optimizedTree="(sample2:0.00307,sample3:0.00098,(sample1:0.00313,sample4:0.00108):0.00100);";
+my $estimatedTree="(sample2:0.00307,sample3:0.00098,(sample1:0.00313,sample4:0.00108):0.00100);";
 
 system("mashtree_init.pl $db >& /dev/null");
 is $?, 0, "Ran mashtree_init.pl";
@@ -38,12 +38,12 @@ subtest "Delete distance between 1 and 2" => sub{
 };
 
 #system("mashtree_dump.pl $db");
-system("mashtree_optimize.pl $db >& /dev/null");
-is $?, 0, "Ran mashtree_optimize.pl to fill in distance between 1 and 2";
+system("mashtree_guessBlanks.pl $db >& /dev/null");
+is $?, 0, "Ran mashtree_guessBlanks.pl to fill in distance between 1 and 2";
 
 #system("mashtree_dump.pl $db");
 my $tree = `mashtree_tree.pl $db 2> /dev/null`; 
 chomp($tree);
-is $tree, $optimizedTree, "mashtree_tree on optimized data";
+is $tree, $estimatedTree, "mashtree_tree on estimated data";
 
 

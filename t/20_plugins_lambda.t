@@ -25,9 +25,6 @@ is $?, 0, "Ran mashtree_init.pl";
 system("mashtree_mash.pl --numcpus 1 $db t/lambda/sample*.fastq.gz");
 is $?, 0, "Ran mashtree_mash.pl";
 
-#system("mashtree_optimize.pl $db");
-#is $?, 0, "Ran mashtree_optimize.pl";
-
 system("mashtree_dump.pl $db");
 my $tree = `mashtree_tree.pl $db`; chomp($tree);
 is $tree, $correctMashtree, "mashtree_tree.pl";
