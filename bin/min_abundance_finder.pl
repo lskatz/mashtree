@@ -57,15 +57,29 @@ sub main{
 
   logmsg "For various values of k, valleys were found:";
   my $firstValley=0;
+  # Average out the votes
+  my $totalFirstValley = 0;
+  my $totalVotes = 0;
   # Sort bins by their votes, highest to lowest
   for my $bin(sort{$firstValleyVote{$b}<=>$firstValleyVote{$a}} keys(%firstValleyVote)){
     my $value=$firstValleyVote{$bin};
     $firstValley||=$bin; # set the valley to the first bin we come to
     logmsg "  $bin: $value votes";
+
+    $totalFirstValley += $bin * $value;
+    $totalVotes += $value;
   }
 
-  print join("\t",qw(kmer count))."\n";
-  print join("\t", $firstValley, 1)."\n";
+  # Get the average first valley across many kmers
+  if($totalVotes==0){
+    print "0\n";
+  } else { 
+    my $avgFirstValley = $totalFirstValley/$totalVotes;
+    printf("%0.0f\n", $avgFirstValley);
+  }
+
+  #print join("\t",qw(kmer count))."\n";
+  #print join("\t", $firstValley, 1)."\n";
   return 0;
 
 }
@@ -191,32 +205,6 @@ sub which{
   
   return $tool_path;
 }
-
-# Opens a fastq file in a smart way
-sub openFastq{
-  my($fastq,$settings)=@_;
-
-  my $fh;
-
-  my @fastqExt=qw(.fastq.gz .fastq .fq.gz .fq);
-  my($name,$dir,$ext)=fileparse($fastq,@fastqExt);
-
-  # Open the file in different ways, depending on if it
-  # is gzipped or if the user has gzip installed.
-  if($ext =~/\.gz$/){
-    # use binary gzip if we can... why not take advantage
-    # of the compiled binary's speedup?
-    if(-e "/usr/bin/gzip"){
-      open($fh,"gzip -cd $fastq | ") or die "ERROR: could not open $fastq for reading!: $!";
-    }else{
-      $fh=new IO::Uncompress::Gunzip($fastq) or die "ERROR: could not read $fastq: $!";
-    }
-  } else {
-    open($fh,"<",$fastq) or die "ERROR: could not open $fastq for reading!: $!";
-  }
-  return $fh;
-}
-
 
 sub usage{
   "
