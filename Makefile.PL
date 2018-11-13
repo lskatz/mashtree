@@ -39,7 +39,7 @@ WriteMakefile1(
     'Bio::Matrix::IO'=> 0,
     'Bio::Tree::DistanceFactory'=> 0,
     'Bio::Tree::Statistics'=> 0,
-    #'Bio::Kmer'      => 0.19,
+    #'Bio::Kmer'      => 0.21,
     'Graph::Dijkstra'=> 0.70,
   },
   BUILD_REQUIRES => {

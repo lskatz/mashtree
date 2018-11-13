@@ -359,7 +359,7 @@ sub determineMinimumDepth{
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
   my $minAbundanceCommand="min_abundance_finder.pl $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
-  lock($abundanceFinderLock); logmsg "DEBUG: running single mode for $fastq";
+  #lock($abundanceFinderLock); logmsg "DEBUG: running single mode for $fastq";
   my @valleyLines=`$minAbundanceCommand`;
   # If there is an error, just try running one at a time.
   # I am not sure why there is a seg fault sometimes when

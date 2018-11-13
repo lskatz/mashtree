@@ -16,6 +16,7 @@ use File::Basename qw/basename fileparse/;
 use File::Temp qw/tempdir/;
 use List::Util qw/max/;
 use IO::Uncompress::Gunzip qw/gunzip/;
+#use Bio::Kmer;
 
 use threads;
 use Thread::Queue;
@@ -74,7 +75,7 @@ sub main{
 sub mashHistogram{
   my($fastq,$settings)=@_;
   my $sketch="$$settings{tempdir}/sketch.msh";
-  system("mash sketch -k $$settings{kmerlength} -b 1000000 -o $sketch $fastq > /dev/null 2>&1");
+  system("mash sketch -k $$settings{kmerlength} -m 2 -o $sketch $fastq > /dev/null 2>&1");
   die if $?;
   
   my @histogram;
