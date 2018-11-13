@@ -402,9 +402,10 @@ sub determineMinimumDepth{
 
 sub usage{
   "$0: use distances from Mash (min-hash algorithm) to make a database of distances
-  Usage: $0 [options] -o mash.sqlite *.fastq *.fasta *.gbk *.msh
+  Usage: $0 [options] mash.sqlite *.fastq *.fasta *.gbk *.msh
   NOTE: fastq files are read as raw reads;
         fasta, gbk, and embl files are read as assemblies;
+        One sqlite file is accepted as a positional parameter.
         Input files can be gzipped.
   --outfile            ''   Required output sqlite file
   --tempdir            ''   If specified, this directory will not be
