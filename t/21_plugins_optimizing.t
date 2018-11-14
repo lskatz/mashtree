@@ -38,11 +38,11 @@ subtest "Delete distance between 1 and 2" => sub{
 };
 
 #system("mashtree_dump.pl $db");
-system("mashtree_guessBlanks.pl $db > /dev/null 2>&1");
+system("mashtree_guessBlanks.pl $db");
 is $?, 0, "Ran mashtree_guessBlanks.pl to fill in distance between 1 and 2";
 
 #system("mashtree_dump.pl $db");
-my $tree = `mashtree_tree.pl $db 2> /dev/null`; 
+my $tree = `mashtree_tree.pl $db `; 
 chomp($tree);
 is $tree, $estimatedTree, "mashtree_tree on estimated data";
 
