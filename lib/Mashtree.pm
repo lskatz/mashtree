@@ -26,7 +26,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "0.34";
+our $VERSION = "0.35";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
@@ -298,7 +298,7 @@ sub treeDist{
       }
 
       if($distance1 != $distance2){
-        logmsg "These two nodes do not have the same distance between trees: ".$nodes1[$i]->id." and ".$nodes1[$j]->id;
+        #logmsg "These two nodes do not have the same distance between trees: ".$nodes1[$i]->id." and ".$nodes1[$j]->id;
       }
 
       # Add up the Euclidean distance
