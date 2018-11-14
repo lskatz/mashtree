@@ -223,10 +223,15 @@ sub mashSketch{
       ($fileName,$filePath,$fileExt)=fileparse($tmpfasta, @fastaExt);
     }
 
+    my $outPrefix="$sketchDir/".basename($fastq, @mshExt);
+
     # Do different things depending on fastq vs fasta
     my $sketchXopts="";
     if(grep {$_ eq $fileExt} @fastqExt){
-      my $minDepth=determineMinimumDepth($fastq,$$settings{mindepth},$$settings{kmerlength},$settings);
+      my $minDepth = 1;
+      if(!-e "$outPrefix.msh"){
+        $minDepth=determineMinimumDepth($fastq,$$settings{mindepth},$$settings{kmerlength},$settings);
+      }
       $sketchXopts.="-m $minDepth -g $$settings{genomesize} ";
     } elsif(grep {$_ eq $fileExt} @fastaExt) {
       $sketchXopts.=" ";
@@ -236,8 +241,6 @@ sub mashSketch{
       logmsg "WARNING: I could not understand what kind of file this is by its extension ($fileExt): $fastq";
     }
       
-    my $outPrefix="$sketchDir/".basename($fastq, @mshExt);
-
     # See if the user already mashed this file locally
     if(-e "$fastq.msh"){
       logmsg "Found locally mashed file $fastq.msh. I will use it.";
@@ -358,7 +361,7 @@ sub determineMinimumDepth{
   # Run the min abundance finder to find the valleys
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
-  my $minAbundanceCommand="min_abundance_finder.pl $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
+  my $minAbundanceCommand="min_abundance_finder.pl $fastq --numcpus $$settings{cpus_per_mash} --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
   #lock($abundanceFinderLock); logmsg "DEBUG: running single mode for $fastq";
   my @valleyLines=`$minAbundanceCommand`;
   # If there is an error, just try running one at a time.
@@ -371,8 +374,10 @@ sub determineMinimumDepth{
   die "ERROR with min_abundance_finder.pl on $fastq: $!" if($?);
   chomp(@valleyLines);
   # Some cleanup of large files
-  unlink $_ for(glob("$minAbundanceTempdir/*"));
-  rmdir $minAbundanceTempdir;
+  # unlink() was causing a segfault for some reason.
+  #unlink $_ for(glob("$minAbundanceTempdir/*"));
+  #rmdir $minAbundanceTempdir;
+  system("rm -rf '$minAbundanceTempdir'");
 
   # If there is no valley, return a default value
   #if(!defined $valleyLines[1] || !looks_like_number($valley[1]) || @valley < 1){
