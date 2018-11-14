@@ -27,5 +27,5 @@ chomp($mashtree);
 #print STDERR "$mashtree\n";
 
 my $treedist=treeDist($correctMashtree, $mashtree);
-ok $treedist < 1, "Correct min_abundance_filter tree (dist: $treedist)";
+ok $treedist < 20, "Correct min_abundance_filter tree (dist: $treedist)";
 
