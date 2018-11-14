@@ -16,7 +16,7 @@ use File::Basename qw/basename fileparse/;
 use File::Temp qw/tempdir/;
 use List::Util qw/max/;
 use IO::Uncompress::Gunzip qw/gunzip/;
-use Bio::Kmer;
+#use Bio::Kmer;
 
 use threads;
 use Thread::Queue;
@@ -45,18 +45,31 @@ sub main{
   die usage() if(!$fastq || $$settings{help});
   die "ERROR: I could not find fastq at $fastq" if(!-e $fastq);
 
-  my %firstValleyVote;
-  for(my $i=9; $i<=23; $i+=2){
-    $$settings{kmerlength}=$i;
-    logmsg "Counting kmers for $i";
-    my $kmerCounter = Bio::Kmer->new($fastq,{numcpus=>$$settings{numcpus},kmerlength=>$i,sample=>1});
-    my $histogram = $kmerCounter->histogram();
-    #my $histogram=mashHistogram($fastq,$settings);
-    my $tmp=findThePeaksAndValleys($histogram,$$settings{delta},$settings);
-    my $firstValley=$$tmp{valleys}[0][0] || next;
-    $firstValleyVote{$firstValley}++;
+  # Find valleys with multithreading
+  my @thr;
+  for(my $kmerlength=9; $kmerlength<=23; $kmerlength+=2){
+    logmsg "Counting kmers for $kmerlength in $fastq";
+    my $delta = $$settings{delta}; # make a copy for threads
+    push(@thr,
+      threads->new(sub{
+        my($fastq, $kmerlength, $delta)=@_;
+          #my $kmerCounter = Bio::Kmer->new($fastq,{numcpus=>$$settings{numcpus},kmerlength=>$kmerlength,sample=>0.01});
+          #my $histogram = $kmerCounter->histogram();
+          my $histogram=mashHistogram($fastq,$kmerlength,$settings);
+          my $tmp=findThePeaksAndValleys($histogram,$delta,$settings);
+          my $firstValley=$$tmp{valleys}[0][0] || 2;
+          return $firstValley;
+
+        },$fastq, $kmerlength, $delta
+      )
+    );
   }
 
+  my %firstValleyVote;
+  for(@thr){
+    my $firstValley = $_->join;
+    $firstValleyVote{$firstValley}++;
+  }
 
   logmsg "For various values of k, valleys were found:";
   my $firstValley=0;
@@ -64,7 +77,7 @@ sub main{
   my $totalFirstValley = 0;
   my $totalVotes = 0;
   # Sort bins by their votes, highest to lowest
-  for my $bin(sort{$firstValleyVote{$b}<=>$firstValleyVote{$a}} keys(%firstValleyVote)){
+  for my $bin(sort{$firstValleyVote{$b}<=>$firstValleyVote{$a} || $a<=>$b} keys(%firstValleyVote)){
     my $value=$firstValleyVote{$bin};
     $firstValley||=$bin; # set the valley to the first bin we come to
     logmsg "  $bin: $value votes";
@@ -74,12 +87,12 @@ sub main{
   }
 
   # Get the average first valley across many kmers
-  if($totalVotes==0){
-    print "0\n";
-  } else { 
-    my $avgFirstValley = $totalFirstValley/$totalVotes;
-    printf("%0.0f\n", $avgFirstValley);
+  my $avgFirstValley = 2; # default if we simply don't know
+  if($totalVotes > 0){
+    $avgFirstValley = $totalFirstValley/$totalVotes;
   }
+  logmsg "    average first valley is $avgFirstValley";
+  printf("%0.0f\n", $avgFirstValley);
 
   #print join("\t",qw(kmer count))."\n";
   #print join("\t", $firstValley, 1)."\n";
@@ -90,9 +103,9 @@ sub main{
 # Poor man's way of subsampling
 # Thanks to Nick Greenfield for pointing this out.
 sub mashHistogram{
-  my($fastq,$settings)=@_;
+  my($fastq,$k,$settings)=@_;
   my $sketch="$$settings{tempdir}/sketch.msh";
-  system("mash sketch -k $$settings{kmerlength} -m 3 -o $sketch $fastq > /dev/null 2>&1");
+  system("mash sketch -k $k -m 2 -o $sketch $fastq > /dev/null 2>&1");
   die if $?;
   
   my @histogram;
