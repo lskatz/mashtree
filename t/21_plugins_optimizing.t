@@ -20,12 +20,12 @@ END{unlink($db);}
 my $correctMashtree="(sample1:0.00210,sample2:0.00204,(sample3:0.00196,sample4:0.00207):0.00005);";
 my $estimatedTree="(sample2:0.00307,sample3:0.00098,(sample1:0.00313,sample4:0.00108):0.00100);";
 
-system("mashtree_init.pl $db >& /dev/null");
+system("mashtree_init.pl $db > /dev/null 2>&1");
 is $?, 0, "Ran mashtree_init.pl";
 
 # Make mash distances but stagger them so that there
 # is missing data.
-system("mashtree_mash.pl --numcpus 1 $db t/lambda/sample*.fastq.gz >& /dev/null");
+system("mashtree_mash.pl --numcpus 1 $db t/lambda/sample*.fastq.gz > /dev/null 2>&1");
 is $?, 0, "Ran mashtree_mash.pl";
 
 # Delete one distance to test for missing data
@@ -38,7 +38,7 @@ subtest "Delete distance between 1 and 2" => sub{
 };
 
 #system("mashtree_dump.pl $db");
-system("mashtree_guessBlanks.pl $db >& /dev/null");
+system("mashtree_guessBlanks.pl $db > /dev/null 2>&1");
 is $?, 0, "Ran mashtree_guessBlanks.pl to fill in distance between 1 and 2";
 
 #system("mashtree_dump.pl $db");
