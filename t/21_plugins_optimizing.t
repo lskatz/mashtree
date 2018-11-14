@@ -23,6 +23,7 @@ SKIP: {
     require Graph::Dijkstra;
   };
   if($@){
+    diag "Graph::Dijkstra not in the environment. Skipping test.";
     skip "Graph::Dijkstra not in the environment. Skipping test.", 5;
   }
 
