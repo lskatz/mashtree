@@ -5,11 +5,11 @@ lib/Mashtree.pm
 lib/Mashtree/Db.pm
 Makefile.PL
 README.md
-plugins/mashtree_dump.pl*
-plugins/mashtree_guessBlanks.pl*
-plugins/mashtree_init.pl*
-plugins/mashtree_mash.pl*
-plugins/mashtree_tree.pl*
+plugins/mashtree_dump.pl
+plugins/mashtree_guessBlanks.pl
+plugins/mashtree_init.pl
+plugins/mashtree_mash.pl
+plugins/mashtree_tree.pl
 plugins/README.md
 t/00_env.t
 t/01_filetypes.t
