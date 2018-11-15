@@ -64,7 +64,9 @@ sub main{
   my($db, @reads);
   for(@ARGV){
     die "ERROR: could not find $_" if(!-e $_);
-    my(undef, undef, $readsExt) = fileparse($_,(@fastqExt,@fastaExt,@richseqExt,@mshExt));
+    my $filenameToTest = $_;
+    $filenameToTest=~s/\.(gz|bz2)$//;
+    my(undef, undef, $readsExt) = fileparse($filenameToTest,(@fastqExt,@fastaExt,@richseqExt,@mshExt));
     if($readsExt){
       push(@reads, $_);
     } else {
