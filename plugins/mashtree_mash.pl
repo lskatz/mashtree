@@ -365,7 +365,7 @@ sub determineMinimumDepth{
   mkdir $minAbundanceTempdir;
   my $minAbundanceCommand="min_abundance_finder.pl $fastq --numcpus $$settings{cpus_per_mash} --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
   #lock($abundanceFinderLock); logmsg "DEBUG: running single mode for $fastq";
-  my @valleyLines=`$minAbundanceCommand`;
+  my $min_depth=`$minAbundanceCommand`;
   # If there is an error, just try running one at a time.
   # I am not sure why there is a seg fault sometimes when
   # more than one are running at the same time though.
@@ -374,7 +374,7 @@ sub determineMinimumDepth{
   #  @valleyLines=`$minAbundanceCommand`;
   #}
   die "ERROR with min_abundance_finder.pl on $fastq: $!" if($?);
-  chomp(@valleyLines);
+  chomp($min_depth);
   # Some cleanup of large files
   # unlink() was causing a segfault for some reason.
   #unlink $_ for(glob("$minAbundanceTempdir/*"));
@@ -383,7 +383,7 @@ sub determineMinimumDepth{
 
   # If there is no valley, return a default value
   #if(!defined $valleyLines[1] || !looks_like_number($valley[1]) || @valley < 1){
-  if(!defined $valleyLines[1] || @valleyLines < 1){
+  if(!defined $min_depth){
     $delta{$fastq}=int($delta{$fastq}/2);
     if($delta{$fastq} > 10){
       logmsg "Trying again to determine a min depth with delta==$delta{$fastq} on $fastq";
@@ -393,18 +393,9 @@ sub determineMinimumDepth{
     return $defaultDepth;
   }
   
-  # Discard the header but keep the first line
-  my($minKmerCount, $countOfCounts)=split(/\t/,$valleyLines[1]);
-  # force an "empty" value to zero
-  if(!defined($minKmerCount) || !looks_like_number($minKmerCount)){
-    $minKmerCount=0;
-  }
-  # However, the minimum count can't be zero, and so it is one.
-  $minKmerCount=1 if($minKmerCount < 1);
+  logmsg "Setting the min depth as $min_depth for $fastq (delta==$delta{$fastq})";
 
-  logmsg "Setting the min depth as $minKmerCount for $fastq (delta==$delta{$fastq})";
-
-  return $minKmerCount;
+  return $min_depth;
 }
 
 sub usage{
