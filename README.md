@@ -14,6 +14,14 @@ assemblies.
 **Note**: Compressed files are also accepted of any of the
 above file types.  You can compress with gz, bz2, or zip.
 
+### Slow and more accurate
+
+You can get a more accurate tree with the minimum abundance finder. Simply
+give `--mindepth 0`.  This step helps ignore very unique kmers that are 
+more likely read errors.
+
+    mashtree --mindepth 0 --numcpus 12 *.fastq.gz [*.fasta] > mashtree.dnd
+
 ### Advanced
 
     mashtree_wrapper.pl --reps 100 -- --numcpus 12 *.fastq.gz > mashtree.dnd
