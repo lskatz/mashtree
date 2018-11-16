@@ -1,0 +1,107 @@
+#!/usr/bin/env perl
+# Author: Lee Katz <lkatz@cdc.gov>
+# Uses Mash and BioPerl to create a NJ tree based on distances.
+# Run this script with -h for help and usage.
+
+use strict;
+use warnings;
+use Data::Dumper;
+use Getopt::Long;
+use File::Basename qw/basename dirname fileparse/;
+use File::Temp qw/tempdir tempfile/;
+
+use FindBin;
+use lib "$FindBin::RealBin/../lib";
+use Mashtree qw/logmsg @fastqExt @fastaExt @mshExt @richseqExt _truncateFilename createTreeFromPhylip $MASHTREE_VERSION/;
+use Mashtree::Db;
+local $0=basename $0;
+
+exit main();
+
+sub main{
+  my $settings={};
+  GetOptions($settings,qw(help outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version)) or die $!;
+  $$settings{numcpus}||=1;
+  $$settings{truncLength}||=250;  # how long a genome name is
+  $$settings{'sort-order'}||="ABC";
+  $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
+
+  # Mash-specific options
+  $$settings{genomesize}||=5000000;
+  $$settings{mindepth}//=5;
+  $$settings{kmerlength}||=21;
+  $$settings{'sketch-size'}||=10000;
+
+  # Make some settings lowercase
+  for(qw(sort-order)){
+    $$settings{$_}=lc($$settings{$_});
+  }
+
+  die usage() if($$settings{help});
+  if($$settings{version}){
+    print "Mashtree $MASHTREE_VERSION\n";
+    return 0;
+  }
+
+  # "reads" are either fasta assemblies or fastq reads
+  my @reads=@ARGV;
+  die usage() if(@reads < 2);
+
+  # Check for prereq executables.
+  for my $exe(qw(mash quicktree)){
+    system("$exe -h > /dev/null 2>&1");
+    die "ERROR: could not find $exe in your PATH" if $?;
+  }
+
+  my($dbFh, $db) = tempfile("DB.XXXXXX", SUFFIX=>".sqlite", DIR=>$$settings{tempdir});
+  logmsg "DB file is $db";
+
+  system("mashtree_init.pl $db"); die if $?;
+  system("mashtree_mash.pl $db @reads --numcpus $$settings{numcpus} --genomesize $$settings{genomesize} --kmerlength $$settings{kmerlength} --sketch-size ".$$settings{'sketch-size'}." --mindepth $$settings{mindepth}"); 
+  die if $?;
+  system("mashtree_tree.pl $db"); die if $?;
+
+  if($$settings{outmatrix}){
+    system("mashtree_dump.pl $db > $$settings{outmatrix}");
+    die if $?;
+  }
+  
+  return 0;
+}
+
+sub usage{
+  "$0: use distances from Mash (min-hash algorithm) to make a NJ tree
+  Usage: $0 [options] *.fastq *.fasta *.gbk *.msh > tree.dnd
+  NOTE: fastq files are read as raw reads;
+        fasta, gbk, and embl files are read as assemblies;
+        Input files can be gzipped.
+  --tempdir            ''   If specified, this directory will not be
+                            removed at the end of the script and can
+                            be used to cache results for future
+                            analyses.
+                            If not specified, a dir will be made for you
+                            and then deleted at the end of this script.
+  --numcpus            1    This script uses Perl threads.
+  --outmatrix          ''   If specified, will write a distance matrix
+                            in tab-delimited format
+  --outtree                 If specified, the tree will be written to 
+                            this file and not to stdout. Log messages
+                            will still go to stderr.
+  --version                 Display the version and exit
+
+  TREE OPTIONS
+  --truncLength        250  How many characters to keep in a filename
+  --sort-order         ABC  For neighbor-joining, the sort order can
+                            make a difference. Options include:
+                            ABC (alphabetical), random, input-order
+
+  MASH SKETCH OPTIONS
+  --genomesize         5000000
+  --mindepth           5    If mindepth is zero, then it will be
+                            chosen in a smart but slower method,
+                            to discard lower-abundance kmers.
+  --kmerlength         21
+  --sketch-size        10000
+  "
+}
+
