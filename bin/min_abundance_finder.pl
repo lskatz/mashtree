@@ -36,10 +36,13 @@ sub main{
   GetOptions($settings,qw(help kmerlength|kmer=i kmerCounter=s delta=i gt|greaterthan=i tempdir=s numcpus=i)) or die $!;
   $$settings{kmerlength} ||=21;
   $$settings{kmerCounter}||="";
-  $$settings{delta}      ||=10;
   $$settings{gt}         ||=1;
   $$settings{tempdir}    ||=tempdir(TEMPLATE=>"$0.XXXXXX",CLEANUP=>1,TMPDIR=>1);
   $$settings{numcpus}    ||=1;
+
+  if($$settings{delta}){
+    logmsg "WARNING: --delta has been deprecated";
+  }
 
   my($fastq)=@ARGV;
   die usage() if(!$fastq || $$settings{help});
@@ -47,19 +50,18 @@ sub main{
 
   # Find valleys with multithreading
   my @thr;
-  for(my $kmerlength=5; $kmerlength<=32; $kmerlength+=3){
+  for(my $kmerlength=7; $kmerlength<=32; $kmerlength+=3){
     logmsg "Counting $kmerlength-kmers in $fastq";
-    my $delta = $$settings{delta}; # make a copy for threads
     push(@thr,
       threads->new(sub{
-        my($fastq, $kmerlength, $delta)=@_;
+        my($fastq, $kmerlength)=@_;
           #my $kmerCounter = Bio::Kmer->new($fastq,{numcpus=>$$settings{numcpus},kmerlength=>$kmerlength,sample=>0.01});
           #my $histogram = $kmerCounter->histogram();
           my $histogram   = mashHistogram($fastq,$kmerlength,$settings);
           my $firstValley = findFirstValley($histogram, $settings);
           return $firstValley;
 
-        },$fastq, $kmerlength, $delta
+        },$fastq, $kmerlength
       )
     );
   }
@@ -91,12 +93,12 @@ sub main{
     for(1..$value){
       push(@vote, $bin);
     }
-    logmsg "  $bin: $value votes";
 
     $totalFirstValley += $bin * $value;
     $totalVotes += $value;
   }
   @vote = sort {$a<=>$b} @vote;
+  logmsg @vote;
   my $medianFirstValley = $vote[ int(scalar(@vote)/2) ];
 
   # Get the average first valley across many kmers
@@ -115,8 +117,8 @@ sub main{
 # Thanks to Nick Greenfield for pointing this out.
 sub mashHistogram{
   my($fastq,$k,$settings)=@_;
-  my $sketch="$$settings{tempdir}/sketch.msh";
-  system("mash sketch -k $k -m 2 -o $sketch $fastq > /dev/null 2>&1");
+  my $sketch="$$settings{tempdir}/sketch.$k.msh";
+  system("mash sketch -k $k -m 1 -o $sketch $fastq > /dev/null 2>&1");
   die if $?;
   
   my @histogram;
@@ -157,15 +159,18 @@ sub readHistogram{
 sub localMinimaMaxima{
   my($array, $settings)=@_;
 
+  my @arr = @$array;
+
   my @minima;
   my @maxima;
   my $prev_cmp = 0;
 
-  my $num = @$array - 2;
+  my $num = @arr - 2;
   for my $i (0 .. $num){
-    my $cmp = $$array[$i] <=> $$array[$i+1];
+    my $cmp = $arr[$i] <=> $arr[$i+1];
     if ($cmp != $prev_cmp) {
-      if($cmp < 0){
+      # have a minimum only after there has been a maximum
+      if($cmp < 0 && @maxima > 0){
         push @minima, $i;
       }
       elsif($cmp > 0){
@@ -183,6 +188,10 @@ sub localMinimaMaxima{
   #  push @minima, $num if $prev_cmp >= 0;
   #  push @maxima, $num if $prev_cmp <= 0;
   #}
+
+  ## debugging
+  #splice(@$array, 30);
+  #print join(".",@minima)."\n".join(",", @$array)."\n\n";
 
   return(\@minima, \@maxima);
 }
