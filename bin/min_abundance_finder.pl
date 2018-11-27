@@ -47,17 +47,16 @@ sub main{
 
   # Find valleys with multithreading
   my @thr;
-  for(my $kmerlength=9; $kmerlength<=23; $kmerlength+=2){
-    logmsg "Counting kmers for $kmerlength in $fastq";
+  for(my $kmerlength=5; $kmerlength<=32; $kmerlength+=3){
+    logmsg "Counting $kmerlength-kmers in $fastq";
     my $delta = $$settings{delta}; # make a copy for threads
     push(@thr,
       threads->new(sub{
         my($fastq, $kmerlength, $delta)=@_;
           #my $kmerCounter = Bio::Kmer->new($fastq,{numcpus=>$$settings{numcpus},kmerlength=>$kmerlength,sample=>0.01});
           #my $histogram = $kmerCounter->histogram();
-          my $histogram=mashHistogram($fastq,$kmerlength,$settings);
-          my $tmp=findThePeaksAndValleys($histogram,$delta,$settings);
-          my $firstValley=$$tmp{valleys}[0][0] || 2;
+          my $histogram   = mashHistogram($fastq,$kmerlength,$settings);
+          my $firstValley = findFirstValley($histogram, $settings);
           return $firstValley;
 
         },$fastq, $kmerlength, $delta
@@ -68,7 +67,15 @@ sub main{
   my %firstValleyVote;
   for(@thr){
     my $firstValley = $_->join;
+    next if(!$firstValley);
     $firstValleyVote{$firstValley}++;
+  }
+
+  # If no valleys were found, simply set the stage so that
+  # the minimum depth will be set to 0.
+  if(keys(%firstValleyVote) < 1){
+    logmsg "NOTE: no valleys were found and so I am inserting an imaginary vote for a valley at cov=1";
+    $firstValleyVote{0} = 1;
   }
 
   logmsg "For various values of k, valleys were found:";
@@ -76,23 +83,27 @@ sub main{
   # Average out the votes
   my $totalFirstValley = 0;
   my $totalVotes = 0;
+  my @vote;
   # Sort bins by their votes, highest to lowest
   for my $bin(sort{$firstValleyVote{$b}<=>$firstValleyVote{$a} || $a<=>$b} keys(%firstValleyVote)){
     my $value=$firstValleyVote{$bin};
     $firstValley||=$bin; # set the valley to the first bin we come to
+    for(1..$value){
+      push(@vote, $bin);
+    }
     logmsg "  $bin: $value votes";
 
     $totalFirstValley += $bin * $value;
     $totalVotes += $value;
   }
+  @vote = sort {$a<=>$b} @vote;
+  my $medianFirstValley = $vote[ int(scalar(@vote)/2) ];
 
   # Get the average first valley across many kmers
-  my $avgFirstValley = 2; # default if we simply don't know
-  if($totalVotes > 0){
-    $avgFirstValley = $totalFirstValley/$totalVotes;
-  }
-  logmsg "    average first valley is $avgFirstValley";
-  printf("%0.0f\n", $avgFirstValley);
+  my $avgFirstValley = $totalFirstValley/$totalVotes;
+  logmsg "    Average first valley is $avgFirstValley";
+  logmsg "    However, I will use the median valley: $medianFirstValley";
+  printf("%0.0f\n", $medianFirstValley);
 
   #print join("\t",qw(kmer count))."\n";
   #print join("\t", $firstValley, 1)."\n";
@@ -141,70 +152,52 @@ sub readHistogram{
   return \@hist;
 }
 
-sub findThePeaksAndValleys{
-  my($hist, $delta, $settings)=@_;
 
-  my($min,$max)=(MAXINT,MININT);
-  my($minPos,$maxPos)=(0,0);
-  my @maxTab=();
-  my @minTab=();
+# https://www.perlmonks.org/?node_id=629742
+sub localMinimaMaxima{
+  my($array, $settings)=@_;
 
-  my $lookForMax=1;
+  my @minima;
+  my @maxima;
+  my $prev_cmp = 0;
 
-  my $numZeros=0; # If we see too many counts of zero, then exit.
-  
-  for(my $kmerCount=$$settings{gt}+1;$kmerCount<@$hist;$kmerCount++){
-    my $countOfCounts=$$hist[$kmerCount];
-    if($countOfCounts == 0){ 
-      $numZeros++;
-    }
-    if($countOfCounts > $max){
-      $max=$countOfCounts;
-      $maxPos=$kmerCount;
-    }
-    if($countOfCounts < $min){
-      $min=$countOfCounts;
-      $minPos=$kmerCount;
-    }
-
-    if($lookForMax){
-      if($countOfCounts < $max - $delta){
-        push(@maxTab,[$maxPos,$max]);
-        $min=$countOfCounts;
-        $minPos=$kmerCount;
-        $lookForMax=0;
+  my $num = @$array - 2;
+  for my $i (0 .. $num){
+    my $cmp = $$array[$i] <=> $$array[$i+1];
+    if ($cmp != $prev_cmp) {
+      if($cmp < 0){
+        push @minima, $i;
       }
-    }
-    else{
-      if($countOfCounts > $min + $delta){
-        push(@minTab,[$minPos,$min]);
-        $max=$countOfCounts;
-        $maxPos=$kmerCount;
-        $lookForMax=1;
+      elsif($cmp > 0){
+        push @maxima, $i;
       }
+      # when this and next elements are ==, defer checking for
+      # minima/maxima till next loop iteration
+      $prev_cmp = $cmp if $cmp;
     }
-
-    last if($numZeros > 3);
   }
 
-  return {peaks=>\@maxTab, valleys=>\@minTab};
+  # Uncomment the following if we want to look at the very
+  # last number in the array.
+  #if (@$array) {
+  #  push @minima, $num if $prev_cmp >= 0;
+  #  push @maxima, $num if $prev_cmp <= 0;
+  #}
+
+  return(\@minima, \@maxima);
 }
 
-sub findTheValley{
-  my($peak1,$peak2,$hist,$settings)=@_;
+sub findFirstValley{
+  my($array, $settings)=@_;
+  my($minima, $maxima) = localMinimaMaxima($array, $settings);
 
-  my $valley=$$peak1[1];
-  my $kmerCount=$$peak1[0];
-  for(my $i=$$peak1[0]+1;$i<=$$peak2[0];$i++){
-    if($valley < $$hist[$i]){
-      $valley=$$hist[$i];
-      $kmerCount=$i;
-    } else {
-      last;
-    }
+  # Return the first minimum if it's not the first element
+  # or if there are no other minima.
+  if($$minima[0] > 0 || !$$minima[1]){
+    return $$minima[0];
+  } else {
+    return $$minima[1];
   }
-  
-  return [$kmerCount,$valley];
 }
 
 # http://www.perlmonks.org/?node_id=761662
@@ -234,8 +227,6 @@ sub usage{
   --gt     1   Look for the first peak at this kmer count
                and then the next valley.
   --kmer   21  kmer length
-  --delta  100 How different the counts have to be to
-               detect a valley or peak
   --numcpus  1 (not currently used)
 
   MISC
