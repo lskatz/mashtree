@@ -26,7 +26,7 @@ use Bio::Matrix::IO;
 use Bio::Tree::Statistics;
 use Bio::SeqIO;
 
-my %delta :shared=(); # change in amplitude for peak detection, for each fastq
+#my %delta :shared=(); # change in amplitude for peak detection, for each fastq
 my $scriptDir=dirname $0;
 my $dbhLock :shared;  # Use this as a lock so that only one thread writes to the db at a time
 my $abundanceFinderLock :shared; # a lock to limit min abundance finder instances
@@ -229,9 +229,10 @@ sub mashSketch{
     }
 
     # Do different things depending on fastq vs fasta
+    my $startDelta = 40;
     my $sketchXopts="";
     if(grep {$_ eq $fileExt} @fastqExt){
-      my $minDepth=determineMinimumDepth($fastq,$$settings{mindepth},$$settings{kmerlength},$settings);
+      my $minDepth=determineMinimumDepth($fastq,$$settings{mindepth},$$settings{kmerlength},$startDelta,$settings);
       $sketchXopts.="-m $minDepth -g $$settings{genomesize} ";
     } elsif(grep {$_ eq $fileExt} @fastaExt) {
       $sketchXopts.=" ";
@@ -364,10 +365,11 @@ sub mashDist{
 }
 
 sub determineMinimumDepth{
-  my($fastq,$mindepth,$kmerlength,$settings)=@_;
+  my($fastq,$mindepth,$kmerlength,$delta,$settings)=@_;
 
-  $delta{$fastq}//=10;
-  my $defaultDepth=2; # if no valley is detected # TODO should it be five?
+  #$delta{$fastq}//=10;
+  $delta//=10;
+  my $defaultDepth=5; # if no valley is detected
 
   return $mindepth if($mindepth > 0);
 
@@ -377,7 +379,7 @@ sub determineMinimumDepth{
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
   #my $minAbundanceCommand="min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
-  my $minAbundanceCommand="min_abundance_finder.pl $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
+  my $minAbundanceCommand="min_abundance_finder.pl $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta";
   #lock($abundanceFinderLock); logmsg "DEBUG: running single mode for $fastq with $$settings{numcpus} cpus in the single thread";
   my $minKmerCount = `$minAbundanceCommand`;
   # If there is an error, just try running one at a time.
@@ -398,10 +400,11 @@ sub determineMinimumDepth{
   # If there is no valley, return a default value
   #if(!defined $valleyLines[1] || !looks_like_number($valley[1]) || @valley < 1){
   if(!$minKmerCount){
-    $delta{$fastq}=int($delta{$fastq}/2);
-    if($delta{$fastq} > 10){
-      logmsg "Trying again to determine a min depth with delta==$delta{$fastq} on $fastq";
-      return determineMinimumDepth($fastq,$mindepth,$kmerlength,$settings);
+    logmsg "NOTE: could not determine a minimum kmer count with delta==$delta on $fastq.";
+    $delta=int($delta/2);
+    if($delta > 10){
+      logmsg "NOTE:     Trying again to determine a min depth with delta==$delta on $fastq";
+      return determineMinimumDepth($fastq,$mindepth,$kmerlength,$delta,$settings);
     }
     logmsg "WARNING: no valleys were found! Reporting minimum kmer coverage as $defaultDepth.";
     return $defaultDepth;
@@ -410,7 +413,7 @@ sub determineMinimumDepth{
   # Set a minimum just in case
   $minKmerCount=1 if($minKmerCount < 1);
 
-  logmsg "Setting the min depth as $minKmerCount for $fastq (delta==$delta{$fastq})";
+  logmsg "Setting the min depth as $minKmerCount for $fastq (delta==$delta)";
 
   return $minKmerCount;
 }
