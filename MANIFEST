@@ -8,6 +8,7 @@ lib/Mashtree.pm
 lib/Mashtree/Db.pm
 Makefile.PL
 README.md
+MANIFEST
 t/00_env.t
 t/01_filetypes.t
 t/02_lambda.t
