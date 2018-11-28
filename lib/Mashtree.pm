@@ -317,5 +317,7 @@ __END__
 
 Mashtree - Create a tree using Mash distances.
 
+=head1 LICENSE MIT
+
 =cut
 
