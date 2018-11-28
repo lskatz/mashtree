@@ -229,10 +229,9 @@ sub mashSketch{
     }
 
     # Do different things depending on fastq vs fasta
-    my $startDelta = 40;
     my $sketchXopts="";
     if(grep {$_ eq $fileExt} @fastqExt){
-      my $minDepth=determineMinimumDepth($fastq,$$settings{mindepth},$$settings{kmerlength},$startDelta,$settings);
+      my $minDepth=determineMinimumDepth($fastq,$$settings{mindepth},$$settings{kmerlength},$settings);
       $sketchXopts.="-m $minDepth -g $$settings{genomesize} ";
     } elsif(grep {$_ eq $fileExt} @fastaExt) {
       $sketchXopts.=" ";
@@ -364,12 +363,9 @@ sub mashDist{
   unlink($distFile);
 }
 
-# TODO remove delta parameter
 sub determineMinimumDepth{
-  my($fastq,$mindepth,$kmerlength,$delta,$settings)=@_;
+  my($fastq,$mindepth,$kmerlength,$settings)=@_;
 
-  #$delta{$fastq}//=10;
-  $delta//=10;
   my $defaultDepth=5; # if no valley is detected
 
   return $mindepth if($mindepth > 0);
@@ -379,7 +375,6 @@ sub determineMinimumDepth{
   # Run the min abundance finder to find the valleys
   my $minAbundanceTempdir="$$settings{tempdir}/$basename.minAbundance.tmp";
   mkdir $minAbundanceTempdir;
-  #my $minAbundanceCommand="min_abundance_finder.pl --numcpus $$settings{cpus_per_mash} $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir --delta $delta{$fastq}";
   my $minAbundanceCommand="min_abundance_finder.pl $fastq --kmer $kmerlength --tempdir $minAbundanceTempdir";
   #lock($abundanceFinderLock); logmsg "DEBUG: running single mode for $fastq with $$settings{numcpus} cpus in the single thread";
   my $minKmerCount = `$minAbundanceCommand`;
@@ -399,22 +394,14 @@ sub determineMinimumDepth{
   system("rm -rf $minAbundanceTempdir");
 
   # If there is no valley, return a default value
-  #if(!defined $valleyLines[1] || !looks_like_number($valley[1]) || @valley < 1){
   if(!$minKmerCount){
-    logmsg "NOTE: could not determine a minimum kmer count with delta==$delta on $fastq.";
-    $delta=int($delta/2);
-    if($delta > 10){
-      logmsg "NOTE:     Trying again to determine a min depth with delta==$delta on $fastq";
-      return determineMinimumDepth($fastq,$mindepth,$kmerlength,$delta,$settings);
-    }
-    logmsg "WARNING: no valleys were found! Reporting minimum kmer coverage as $defaultDepth.";
     return $defaultDepth;
   }
   
   # Set a minimum just in case
   $minKmerCount=1 if($minKmerCount < 1);
 
-  logmsg "Setting the min depth as $minKmerCount for $fastq (delta==$delta)";
+  logmsg "Setting the min depth as $minKmerCount for $fastq";
 
   return $minKmerCount;
 }
