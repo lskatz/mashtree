@@ -45,7 +45,6 @@ more likely read errors.
     --outtree                 If specified, the tree will be written to
                               this file and not to stdout. Log messages
                               will still go to stderr.
-
     --version                 Display the version and exit
 
     TREE OPTIONS
@@ -61,6 +60,7 @@ more likely read errors.
                               to discard lower-abundance kmers.
     --kmerlength         21
     --sketch-size        10000
+
 
 Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 `--help` for additional information.
