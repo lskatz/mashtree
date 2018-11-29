@@ -7,7 +7,9 @@ bin/min_abundance_finder.pl
 lib/Mashtree.pm
 lib/Mashtree/Db.pm
 Makefile.PL
+README
 README.md
+README.pod
 t/00_env.t
 t/01_filetypes.t
 t/02_lambda.t
