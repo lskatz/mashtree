@@ -16,7 +16,6 @@ use File::Basename qw/basename fileparse/;
 use File::Temp qw/tempdir/;
 use List::Util qw/max/;
 use IO::Uncompress::Gunzip qw/gunzip/;
-#use Bio::Kmer;
 
 use threads;
 use Thread::Queue;
@@ -48,29 +47,36 @@ sub main{
   die usage() if(!$fastq || $$settings{help});
   die "ERROR: I could not find fastq at $fastq" if(!-e $fastq);
 
-  # Find valleys with multithreading
+  ## Find valleys with multithreading
+  # List all kmer sizes per thread.
+  my @kmerlength;
+  my $i=0;
+  for(my $k=7; $k<=32; $k+=3){
+    my $whichThread = $i % $$settings{numcpus};
+    push(@{$kmerlength[$whichThread]}, $k);
+    $i++;
+  }
+      
+  # Launch the threads with the various kmer length sub-arrays.
   my @thr;
-  for(my $kmerlength=7; $kmerlength<=32; $kmerlength+=3){
-    logmsg "Counting $kmerlength-kmers in $fastq";
+  for my $kArray(@kmerlength){
+    # Ensure that each thing getting sent to the thread is independent
+    # of this main subroutine memory space.
+    my %settingsCopy = %$settings;
+    my @kArrayCopy   = @$kArray;
+    # Launch the thread.
     push(@thr,
-      threads->new(sub{
-        my($fastq, $kmerlength)=@_;
-          #my $kmerCounter = Bio::Kmer->new($fastq,{numcpus=>$$settings{numcpus},kmerlength=>$kmerlength,sample=>0.01});
-          #my $histogram = $kmerCounter->histogram();
-          my $histogram   = mashHistogram($fastq,$kmerlength,$settings);
-          my $firstValley = findFirstValley($histogram, $settings);
-          return $firstValley;
-
-        },$fastq, $kmerlength
-      )
+      threads->new(\&valleyWorker, $fastq, \@kArrayCopy,\%settingsCopy)
     );
   }
 
   my %firstValleyVote;
   for(@thr){
     my $firstValley = $_->join;
-    next if(!$firstValley);
-    $firstValleyVote{$firstValley}++;
+    for my $minimum(@$firstValley){
+      next if(!$minimum);
+      $firstValleyVote{$minimum}++;
+    }
   }
 
   # If no valleys were found, simply set the stage so that
@@ -154,6 +160,18 @@ sub readHistogram{
   return \@hist;
 }
 
+sub valleyWorker{
+  my($fastq, $kArray, $settings)=@_;
+  my @firstValley;
+
+  for my $kmerlength(@$kArray){
+    logmsg "Counting $kmerlength-kmers in $fastq";
+    my $histogram   = mashHistogram($fastq,$kmerlength,$settings);
+    my $firstValley = findFirstValley($histogram, $settings);
+    push(@firstValley, $firstValley);
+  }
+  return \@firstValley;
+}
 
 # https://www.perlmonks.org/?node_id=629742
 sub localMinimaMaxima{
@@ -236,7 +254,9 @@ sub usage{
   --gt     1   Look for the first peak at this kmer count
                and then the next valley.
   --kmer   21  kmer length
-  --numcpus  1 (not currently used)
+  --numcpus 1  This script will apply one thread per kmer
+               length. Multiple values of k are tested to
+               get a consensus value.
 
   MISC
   --kmerCounter ''  The kmer counting program to use.
