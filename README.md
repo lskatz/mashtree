@@ -3,18 +3,21 @@ Create a tree using Mash distances.
 
 For simple usage, see `mashtree`.  For advanced options, look at `mashtree_wrapper.pl`.
 
-## Examples
+## Two modes: fast or accurate
+
+**Input files**: fastq files are interpreted as raw read files. Fasta,
+GenBank, and EMBL files are interpreted as genome
+assemblies. Compressed files are also accepted of any of the
+above file types.  You can compress with gz, bz2, or zip.
+
+**Output files**: Newick (.dnd).  If `--outmatrix` is supplied, then
+a distance matrix too.
+
+### Faster
 
     mashtree --numcpus 12 *.fastq.gz [*.fasta] > mashtree.dnd
 
-**Note**: fastq files are interpreted as raw read files. Fasta,
-GenBank, and EMBL files are interpreted as genome
-assemblies.
-
-**Note**: Compressed files are also accepted of any of the
-above file types.  You can compress with gz, bz2, or zip.
-
-### Slow and more accurate
+### More accurate
 
 You can get a more accurate tree with the minimum abundance finder. Simply
 give `--mindepth 0`.  This step helps ignore very unique kmers that are 
