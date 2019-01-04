@@ -36,7 +36,7 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version)) or die $!;
+  GetOptions($settings,qw(help file-of-files outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -61,7 +61,7 @@ sub main{
 
   # "reads" are either fasta assemblies or fastq reads
   my @reads=@ARGV;
-  die usage() if(@reads < 2);
+  die "need more arguments\n".usage() if(@reads < 1);
 
   # Check for prereq executables.
   for my $exe(qw(mash quicktree)){
@@ -92,7 +92,29 @@ sub main{
       logmsg "Skipping $reads: already seen $basename";
       next;
     }
-    push(@tmp,$reads);
+
+    # If the user wants to specify files of files then check
+    # on whether it is a file of files.  Otherwise do not check
+    # because of disk IO speeds.
+    if($$settings{'file-of-files'}){
+      open(my $possibleFileOfFiles, "<", $reads) or die "ERROR: could not read $reads: $!";
+      my $firstfile = <$possibleFileOfFiles>;
+      $firstfile=~s/^\s+|\s+$//g; #whitespace trim
+      chomp($firstfile);
+      if(-e $firstfile){
+        push(@tmp, $firstfile);
+        while(<$possibleFileOfFiles>){
+          s/^\s+|\s+$//g; #whitespace trim
+          push(@tmp, $_);
+        }
+      } else {
+        logmsg "WARNING: user specified --file-of-files but $reads does not seem to be a file of files (ignore this warning if this was not supposed to be a file of files";
+        push(@tmp, $reads);
+      }
+      close $possibleFileOfFiles;
+    } else {
+      push(@tmp,$reads);
+    }
   }
   @reads=@tmp;
 
@@ -421,6 +443,10 @@ sub usage{
   --numcpus            1    This script uses Perl threads.
   --outmatrix          ''   If specified, will write a distance matrix
                             in tab-delimited format
+  --file-of-files           If specified, mashtree will try to read 
+                            filenames from each input file. The file of
+                            files format is one filename per line. This
+                            file of files cannot be compressed.
   --outtree                 If specified, the tree will be written to 
                             this file and not to stdout. Log messages
                             will still go to stderr.

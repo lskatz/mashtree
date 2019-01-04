@@ -1,0 +1,4 @@
+t/lambda/sample1.fastq.gz
+t/lambda/sample2.fastq.gz
+t/lambda/sample3.fastq.gz
+t/lambda/sample4.fastq.gz
