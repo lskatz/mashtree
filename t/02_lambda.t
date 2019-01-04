@@ -14,11 +14,13 @@ use Mashtree qw/treeDist/;
 $ENV{PATH}="./bin:$ENV{PATH}";
 
 my $correctMashtree="(sample3:0.00195,sample4:0.00205,(sample1:0.00205,sample2:0.00205):0.00010);";
+$correctMashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 
 # Test to see if the correct tree is made
 END{unlink "lambdadist.tsv";}
 my $mashtree=`mashtree --outmatrix lambdadist.tsv --numcpus 1 t/lambda/*.fastq.gz`;
 chomp($mashtree);
+$mashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 my $dist=treeDist($mashtree,$correctMashtree);
 is $dist , 0, "Lambda test set tree";
 
