@@ -4,7 +4,6 @@ use strict;
 use warnings;
 use Test::More tests => 5;
 use FindBin qw/$RealBin/;
-use Scalar::Util qw/looks_like_number/;
 
 use lib './lib';
 use_ok 'Mashtree';
@@ -26,6 +25,8 @@ my $version = `mashtree --version`;
 my $exit_code = $? % 256;
 is $exit_code, 0, "Mashtree --version exit code: $exit_code";
 
-$version =~ s/[^\d\.]//g;
-ok looks_like_number($version), "Version number returned: $version";
+$version =~ s/Mashtree\s*//; # Mashtree trim
+$version =~ s/^\s+|\s+$//;   # whitespace trim
+my $found_nonversion = !! ($version=~/([^\.\d])/) + 0;
+is($found_nonversion, 0, "Looking for version numbers in the format of 1.2.3 (Version returned was $version)");
 
