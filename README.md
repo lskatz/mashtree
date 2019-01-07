@@ -45,6 +45,10 @@ more likely read errors.
     --numcpus            1    This script uses Perl threads.
     --outmatrix          ''   If specified, will write a distance matrix
                               in tab-delimited format
+    --file-of-files           If specified, mashtree will try to read
+                              filenames from each input file. The file of
+                              files format is one filename per line. This
+                              file of files cannot be compressed.
     --outtree                 If specified, the tree will be written to
                               this file and not to stdout. Log messages
                               will still go to stderr.

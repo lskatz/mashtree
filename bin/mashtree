@@ -178,7 +178,7 @@ sub sketchAll{
   return \@mshList;
 }
 
-# Individual mash sketch
+# Individual mash sketch worker
 sub mashSketch{
   my($sketchDir,$genomeArr,$settings)=@_;
 
@@ -186,9 +186,14 @@ sub mashSketch{
   # this directory.
   my $tempdir=tempdir("$$settings{tempdir}/convertSeq.XXXXXX", CLEANUP=>1);
 
+  my $numFiles = scalar(@$genomeArr);
+  logmsg "This thread will work on $numFiles sketches";
+
   my @msh;
+  my $fileCounter=0;
   # $fastq is a misnomer: it could be any kind of accepted sequence file
   for my $fastq(@$genomeArr){
+    logmsg "Working on ".++$fileCounter." file out of $numFiles";
     my($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt,@mshExt);
 
     # Unzip the file. This temporary file will
@@ -279,10 +284,12 @@ sub mashSketch{
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
       next;
     } else {
-      logmsg "Sketching $fastq";
-      my $sketchCommand="mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq  1>&2";
-      system($sketchCommand);
-      die if $?;
+      my $sketchCommand="mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq 2>&1";
+      my $stdout = `$sketchCommand`;
+      if ($?){
+        logmsg "ERROR running $sketchCommand!";
+        die;
+      }
     }
 
     push(@msh,"$outPrefix.msh");
