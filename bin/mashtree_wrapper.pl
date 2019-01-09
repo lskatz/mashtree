@@ -36,34 +36,35 @@ sub main{
   my @wrapperOptions=qw(help outmatrix=s tempdir=s reps=i numcpus=i);
   GetOptions($settings,@wrapperOptions) or die $!;
   $$settings{reps}||=0;
-  $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
-  mkdir($$settings{tempdir}) if(!-d $$settings{tempdir});
   $$settings{numcpus}||=1;
-
-  logmsg "WARNING this script is no longer maintained";
-
-  logmsg "Temporary directory will be $$settings{tempdir}";
-
   die usage() if($$settings{help});
   die usage() if(@ARGV < 1);
+
+  $$settings{tempdir}||=tempdir("MASHTREE_WRAPPER.XXXXXX",CLEANUP=>1,TMPDIR=>1);
+  mkdir($$settings{tempdir}) if(!-d $$settings{tempdir});
+  logmsg "Temporary directory will be $$settings{tempdir}";
+
+  if($$settings{reps} < 10){
+    logmsg "WARNING: You have very few reps planned on this mashtree run. Recommended reps are at least 10 or 100.";
+  }
   
   ## Catch some options that are not allowed to be passed
-  # Tempdir: All mashtree.pl temporary directories will be under the
+  # Tempdir: All mashtree temporary directories will be under the
   # wrapper's tempdir.
   if(grep(/^\-+tempdir$/,@ARGV) || grep(/^\-+t$/,@ARGV)){
-    die "ERROR: tempdir was specified for mashtree.pl";
+    die "ERROR: tempdir was specified for mashtree but should be an option for $0";
   }
   # Numcpus: this needs to be specified in the wrapper and will
-  # appropriately be transferred to the mashtree.pl script
+  # appropriately be transferred to the mashtree script
   if(grep(/^\-+numcpus$/,@ARGV) || grep(/^\-+n$/,@ARGV)){
-    die "ERROR: numcpus was specified for mashtree.pl";
+    die "ERROR: numcpus was specified for mashtree but should be an option for $0";
   }
   # Outmatrix: the wrapper script needs to control where
   # the matrix goes because it can only have the outmatrix
   # for the observed run and not the replicates for speed's
   # sake.
   if(grep(/^\-+outmatrix$/,@ARGV) || grep(/^\-+o$/,@ARGV)){
-    die "ERROR: outmatrix was specified for mashtree.pl";
+    die "ERROR: outmatrix was specified for mashtree but should be an option for $0";
   }
 
   my $mashOptions=join(" ",@ARGV);
@@ -71,19 +72,21 @@ sub main{
   # Some filenames we'll expect
   my $observeddir="$$settings{tempdir}/observed";
   my $obsDistances="$observeddir/distances.phylip";
-  my $observedTree="$observeddir/tree.dnd";
-  my $outmatrix="$observeddir/distances.tsv";
+  my $observedTree="$$settings{tempdir}/observed.dnd";
+  my $outmatrix="$$settings{tempdir}/observeddistances.tsv";
 
   # Make the observed directory and run Mash
   mkdir($observeddir);
-  system("$FindBin::RealBin/mashtree.pl --outmatrix $outmatrix --tempdir $observeddir --numcpus $$settings{numcpus} $mashOptions > $observedTree.tmp && mv $observedTree.tmp $observedTree");
+  system("$FindBin::RealBin/mashtree --outmatrix $outmatrix.tmp --tempdir $observeddir --numcpus $$settings{numcpus} $mashOptions > $observedTree.tmp");
   die if $?;
+  mv("$observedTree.tmp",$observedTree) or die $?;
+  mv("$outmatrix.tmp",$outmatrix) or die $?;
 
   # Multithreaded reps
   my $repQueue=Thread::Queue->new(1..$$settings{reps});
   my @thr;
   for(0..$$settings{numcpus}-1){
-    $thr[$_]=threads->new(\&repWorker, "$observeddir/distances.sqlite", $repQueue, $settings);
+    $thr[$_]=threads->new(\&repWorker, $mashOptions, $repQueue, $settings);
     $repQueue->enqueue(undef);
   }
 
@@ -121,29 +124,74 @@ sub main{
 }
 
 sub repWorker{
-  my($dbFile,$repQueue,$settings)=@_;
+  my($mashOptions,$repQueue,$settings)=@_;
 
-  my $mashtreeDb=Mashtree::Db->new($dbFile);
+  my $threadTempdir = "$$settings{tempdir}/thread".threads->tid;
+  my @argv = split(/\s+/, $mashOptions);
+  mkdir($threadTempdir);
+  
+  # Copy input files over so that the threads don't trip
+  # over themselves
+  # TODO remove these files at the end of this thread
+  {
+    lock($writeStick);
+    logmsg "Copying input files over to this thread's private space - $threadTempdir";
+    for(my $i=0;$i<@argv;$i++){
+      if(-e $argv[$i]){
+        my $copiedFile = "$threadTempdir/".basename($argv[$i]);
+        cp($argv[$i], $copiedFile);
+        $argv[$i] = $copiedFile;
+      }
+    }
+  }
 
   my @bsTree;
   while(defined(my $rep=$repQueue->dequeue())){
-    my $tempdir="$$settings{tempdir}/rep$rep";
-    mkdir($tempdir);
-    if($rep % 100 == 0){
-      logmsg "Mashtree replicate $rep - $tempdir";
+    my $repTempdir="$$settings{tempdir}/rep$rep";
+    mkdir $repTempdir;
+    logmsg "Mashtree replicate $rep - $repTempdir";
+    logmsg "Downsampling reads (replicate $rep).";
+    
+    # Downsample the reads
+    my @opts;
+    for my $argv(@argv){
+      if(! -e $argv){
+        push(@opts, $argv);
+        next;
+      }
+
+      my $newReads = "$repTempdir/".basename($argv);
+      open(my $outFh," | gzip -c > $newReads") or die "ERROR gzipping to $newReads: $!";
+      open(my $inFh, "zcat $argv | ") or die "ERROR reading $argv for downsampling: $!";
+      while(my $id=<$inFh>){
+        my $seq =<$inFh>;
+        my $plus=<$inFh>;
+        my $qual=<$inFh>;
+        if(rand(1) < 0.5){
+          print $outFh $id.$seq.$plus.$qual;
+        }
+      } 
+      close $inFh;
+      close $outFh;
+      push(@opts, $newReads);
     }
 
-    # Test the neighbor-joining algorithm by shuffling the input order
-    # Make a new shuffled matrix
-    my $phylipString=$mashtreeDb->toString("phylip","rand");
-    open(my $phylipFh,">","$tempdir/distances.phylip") or die "ERROR: could not open $tempdir/distances.phylip: $!";
-    print $phylipFh $phylipString;
-    close $phylipFh;
+    logmsg "Running mashtree on replicate $rep";
+    my $log = `mashtree --numcpus 1 @opts 2>&1 > $repTempdir/tree.dnd`;
+    if($?){
+      die "ERROR with mashtree on rep $rep (exit code $?):\n$log";
+    }
 
-    # Make a tree from the shuffled matrix
-    createTreeFromPhylip("$tempdir/distances.phylip",$tempdir,$settings);
-    push(@bsTree,"$tempdir/tree.dnd");
+    logmsg "Finished with rep $rep";
+    push(@bsTree,"$repTempdir/tree.dnd");
   }
+
+  # Cleanup of large files just in case they wouldn't get
+  # removed on script exit.
+  for my $file(glob("$threadTempdir/*")){
+    unlink $file;
+  }
+
   return \@bsTree;
 }
 
@@ -152,18 +200,21 @@ sub repWorker{
 #######
 
 sub usage{
-  my $usage="$0: a wrapper around mashtree.pl.
-  Usage: $0 [options] [-- mashtree.pl options] *.fastq.gz *.fasta > tree.dnd
+  my $usage="$0: a wrapper around mashtree.
+  Usage: $0 [options] [-- mashtree options] *.fastq.gz *.fasta > tree.dnd
   --outmatrix          ''   Output file for distance matrix
   --reps               0    How many bootstrap repetitions to run;
                             If zero, no bootstrapping.
-  --numcpus            1    This will be passed to mashtree.pl and will
+                            Bootstrapping will only work on compressed fastq
+                            files.
+  --numcpus            1    This will be passed to mashtree and will
                             be used to multithread reps.
   
-  MASHTREE.PL OPTIONS:\n".
+  --                        Used to separate options for $0 and mashtree
+  MASHTREE OPTIONS:\n".
   # Print the mashtree options starting with numcpus,
   # skipping the tempdir option.
-  `mashtree.pl --help 2>&1 | grep -A 999 "TREE OPTIONS" | grep -v ^Stopped`;
+  `mashtree --help 2>&1 | grep -A 999 "TREE OPTIONS" | grep -v ^Stopped`;
 
   return $usage;
 }

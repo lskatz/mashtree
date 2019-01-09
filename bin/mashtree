@@ -193,7 +193,7 @@ sub mashSketch{
   my $fileCounter=0;
   # $fastq is a misnomer: it could be any kind of accepted sequence file
   for my $fastq(@$genomeArr){
-    logmsg "Working on ".++$fileCounter." file out of $numFiles";
+    logmsg "Working on file ".++$fileCounter." out of $numFiles";
     my($fileName,$filePath,$fileExt)=fileparse($fastq,@fastqExt,@fastaExt,@richseqExt,@mshExt);
 
     # Unzip the file. This temporary file will
