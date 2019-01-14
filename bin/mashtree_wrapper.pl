@@ -12,6 +12,8 @@ use File::Basename qw/basename dirname fileparse/;
 use File::Copy qw/cp mv/;
 use List::Util qw/shuffle/;
 
+use Fcntl qw/:flock LOCK_EX/;
+
 use threads;
 use Thread::Queue;
 use threads::shared;
@@ -28,6 +30,7 @@ use Bio::Matrix::IO;
 
 local $0=basename $0;
 my $writeStick :shared;  # Only one thread can write at a time
+my $gzipStick  :shared;  # Only one thread can write at a time
 
 exit main();
 
@@ -65,6 +68,19 @@ sub main{
   # sake.
   if(grep(/^\-+outmatrix$/,@ARGV) || grep(/^\-+o$/,@ARGV)){
     die "ERROR: outmatrix was specified for mashtree but should be an option for $0";
+  }
+  
+  # Copy reads over to the temp storage where I assume it is faster
+  # and where we can write .lock files.
+  my $inputdir = "$$settings{tempdir}/input";
+  mkdir $inputdir;
+  for(my $i=0;$i<@ARGV;$i++){
+    if(-e $ARGV[$i]){
+      logmsg "Copying $ARGV[$i] to temp space - $inputdir";
+      my $copiedFile = "$inputdir/".basename($ARGV[$i]);
+      cp($ARGV[$i], $copiedFile);
+      $ARGV[$i] = $copiedFile;
+    }
   }
 
   my $mashOptions=join(" ",@ARGV);
@@ -126,34 +142,17 @@ sub main{
 sub repWorker{
   my($mashOptions,$repQueue,$settings)=@_;
 
-  my $threadTempdir = "$$settings{tempdir}/thread".threads->tid;
   my @argv = split(/\s+/, $mashOptions);
-  mkdir($threadTempdir);
-  
-  # Copy input files over so that the threads don't trip
-  # over themselves
-  # TODO remove these files at the end of this thread
-  {
-    lock($writeStick);
-    logmsg "Copying input files over to this thread's private space - $threadTempdir";
-    for(my $i=0;$i<@argv;$i++){
-      if(-e $argv[$i]){
-        my $copiedFile = "$threadTempdir/".basename($argv[$i]);
-        cp($argv[$i], $copiedFile);
-        $argv[$i] = $copiedFile;
-      }
-    }
-  }
 
   my @bsTree;
   while(defined(my $rep=$repQueue->dequeue())){
     my $repTempdir="$$settings{tempdir}/rep$rep";
     mkdir $repTempdir;
-    logmsg "Mashtree replicate $rep - $repTempdir";
-    logmsg "Downsampling reads (replicate $rep).";
+    logmsg "Starting mashtree replicate $rep - $repTempdir";
     
-    # Downsample the reads
     my @opts;
+    #logmsg "Downsampling reads (replicate $rep).";
+    # Downsample the reads
     for my $argv(@argv){
       if(! -e $argv){
         push(@opts, $argv);
@@ -161,22 +160,34 @@ sub repWorker{
       }
 
       my $newReads = "$repTempdir/".basename($argv);
-      open(my $outFh," | gzip -c > $newReads") or die "ERROR gzipping to $newReads: $!";
+      my @buffer = ();
+      open(my $lockFh, ">", "$argv.lock") or die "ERROR: could not make lockfile $argv.lock: $!";
+      flock($lockFh, LOCK_EX) or die "ERROR locking file $argv.lock: $!";
+
       open(my $inFh, "zcat $argv | ") or die "ERROR reading $argv for downsampling: $!";
+      open(my $outFh," | gzip -c > $newReads") or die "ERROR gzipping to $newReads: $!";
       while(my $id=<$inFh>){
         my $seq =<$inFh>;
         my $plus=<$inFh>;
         my $qual=<$inFh>;
         if(rand(1) < 0.5){
-          print $outFh $id.$seq.$plus.$qual;
+          push(@buffer, $id.$seq.$plus.$qual);
+          if(scalar(@buffer) > 10000){
+            print $outFh join("",@buffer);
+            @buffer = (); # flush the buffer
+          }
         }
       } 
-      close $inFh;
+      # Finish the remaining entries in the buffer
+      print $outFh join("",@buffer);
       close $outFh;
+      close $inFh;
+      close $lockFh;
+
       push(@opts, $newReads);
     }
 
-    logmsg "Running mashtree on replicate $rep";
+    logmsg "Done downsampling for replicate $rep. Running mashtree on files in $repTempdir";
     my $log = `mashtree --numcpus 1 @opts 2>&1 > $repTempdir/tree.dnd`;
     if($?){
       die "ERROR with mashtree on rep $rep (exit code $?):\n$log";
@@ -184,12 +195,6 @@ sub repWorker{
 
     logmsg "Finished with rep $rep";
     push(@bsTree,"$repTempdir/tree.dnd");
-  }
-
-  # Cleanup of large files just in case they wouldn't get
-  # removed on script exit.
-  for my $file(glob("$threadTempdir/*")){
-    unlink $file;
   }
 
   return \@bsTree;
