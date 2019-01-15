@@ -204,9 +204,15 @@ sub mashSketch{
     # Don't bother unzipping if it's a fastq or fasta file b/c Mash can read those
     if(!grep {$_ eq $fileExt} (@fastqExt,@fastaExt)){
       if($fastq=~/\.gz$/i){
-        system("gzip  -cd $fastq > $unzipped");
-        die "ERROR with gzip  -cd $fastq" if $?;
-        $was_unzipped=1;
+        # Don't actually decompress fastq.gz files because they are
+        # read natively by mash.
+        if($fastq =~ /\.fastq.gz$|\.fq.gz$/){
+          $was_unzipped=0;
+        } else {
+          system("gzip -cd $fastq > $unzipped");
+          die "ERROR with gzip -cd $fastq" if $?;
+          $was_unzipped=1;
+        }
       } elsif($fastq=~/\.bz2?$/i){
         system("bzip2 -cd $fastq > $unzipped");
         die "ERROR with bzip2 -cd $fastq" if $?;
