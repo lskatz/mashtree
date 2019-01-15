@@ -27,7 +27,7 @@ $mashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 
 my $fh = IO::String->new($mashtree);
 my $tree = Bio::TreeIO->new(-fh=>$fh, -format=>"newick")->next_tree;
-subtest "Bootstrapping test" => sub{
+subtest "Parts of the tree file intact" => sub{
   plan tests => 3;
   my @nodes = $tree->get_nodes;
   for my $node(grep {!$_->is_Leaf} @nodes){
