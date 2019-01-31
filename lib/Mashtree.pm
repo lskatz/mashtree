@@ -15,7 +15,7 @@ use Bio::Matrix::IO;
 use Bio::TreeIO;
 
 our @EXPORT_OK = qw(
-           logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames treeDist
+           logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames treeDist mashDist
            @fastqExt @fastaExt @bamExt @vcfExt @richseqExt @mshExt
            $MASHTREE_VERSION
          );
@@ -25,7 +25,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "0.37";
+our $VERSION = "0.38";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
@@ -307,6 +307,105 @@ sub treeDist{
   $euclideanDistance=sqrt($euclideanDistance);
   return $euclideanDistance;
 }
+
+# Find the distance between two mash sketch files
+sub mashDist{
+  my($file1, $file2, $settings)=@_;
+  my ($hashes1, $kmer1, $length1) = mashHashes($file1);
+  my ($hashes2, $kmer2, $length2) = mashHashes($file2);
+
+  if($kmer1 ne $kmer2){
+    die "ERROR: kmer lengths do not match($kmer1 vs $kmer2)";
+  }
+  my $k = $kmer1;
+
+  my($common, $total) = raw_mash_distance($hashes1, $hashes2);
+  my $jaccard = $common/$total;
+  my $mash_distance = -1/$k * log(2*$jaccard / (1+$jaccard));
+
+  return $mash_distance;
+}
+
+sub mashHashes{
+  my($sketch)=@_;
+  my @hash;
+  my $length = 0;
+  my $kmer   = 0;
+
+  my $fh;
+  if($sketch =~ /\.msh$/){
+    open($fh, "mash info -d $sketch | ") or die "ERROR: could not run mash info -d on $sketch: $!";
+  } elsif($sketch =~ /\.json$/){
+    open($fh, $sketch) or die "ERROR: could not read $sketch: $!";
+  }
+  while(<$fh>){
+    if(/kmer\D+(\d+)/){
+      $kmer = $1;
+    }
+    elsif(/length\D+(\d+)/){
+      $length = $1;
+    }
+    elsif(/hashes/){
+      while(<$fh>){
+        last if(/\]/);
+        next if(!/\d/);
+        s/\D+//g;
+        s/^\s+|\s+$//g;
+        push(@hash, $_);
+      }
+    }
+  }
+  return (\@hash, $kmer, $length);
+}
+
+# https://github.com/onecodex/finch-rs/blob/master/src/distance.rs#L34
+sub raw_mash_distance{
+  my($hashes1, $hashes2) = @_;
+
+  my @sketch1 = sort {$a <=> $b} @$hashes1;
+  my @sketch2 = sort {$a <=> $b} @$hashes2;
+
+  my $i      = 0;
+  my $j      = 0;
+  my $common = 0;
+  my $total  = 0;
+
+  my $sketch_size = @sketch1;
+  while($total < $sketch_size && $i < @sketch1 && $j < @sketch2){
+    my $ltgt = ($sketch1[$i] <=> $sketch2[$j]); # -1 if sketch1 is less than, +1 if sketch1 is greater than
+
+    if($ltgt == -1){
+      $i += 1;
+    } elsif($ltgt == 1){
+      $j += 1;
+    } elsif($ltgt==0) {
+      $i += 1;
+      $j += 1;
+      $common += 1;
+    } else {
+      die "Internal error";
+    }
+
+    $total += 1;
+  }
+
+  if($total < $sketch_size){
+    if($i < @sketch1){
+      $total += @sketch1 - 1;
+    }
+
+    if($j < @sketch2){
+      $total += @sketch2 - 1;
+    }
+
+    if($total > $sketch_size){
+      $total = $sketch_size;
+    }
+  }
+
+  return ($common, $total);
+}
+
 
 1;
 

@@ -24,7 +24,7 @@ use threads::shared;
 
 use FindBin;
 use lib "$FindBin::RealBin/../lib";
-use Mashtree qw/logmsg @fastqExt @fastaExt createTreeFromPhylip/;
+use Mashtree qw/logmsg @fastqExt @fastaExt createTreeFromPhylip mashDist/;
 use Mashtree::Db;
 use Bio::SeqIO;
 use Bio::TreeIO;
@@ -121,9 +121,6 @@ sub main{
   logmsg "Adding bootstraps to tree";
   my $biostat=Bio::Tree::Statistics->new;
   my $guideTree=Bio::TreeIO->new(-file=>"$observeddir/tree.dnd")->next_tree;
-  my $rootLeaf = (sort map {$_->id} grep {$_->is_Leaf}  $guideTree->get_nodes)[0];
-  my $sample1Node = (grep{defined($_->id) && $_->id eq $rootLeaf} $guideTree->get_nodes)[0];
-  $guideTree->reroot($sample1Node);
   my $bsTree=$biostat->assess_bootstrap(\@bsTree,$guideTree);
   for my $node($bsTree->get_nodes){
     next if($node->is_Leaf);
@@ -159,7 +156,7 @@ sub makeSketchPool{
   mkdir $largeSketchDir;
   # Make the sketch size slightly more than double because
   # some will be truncated.
-  my $sketchSize = int($$settings{'sketch-size'} * 2.0);
+  my $sketchSize = int($$settings{'sketch-size'} * 1.1);
 
   my @thr;
   for my $i(0..$$settings{numcpus}-1){
@@ -207,7 +204,6 @@ sub makeSketchPool{
       }
     }
     $$jsonHash{sketches}[0]{hashes} = \@newInts;
-    #logmsg scalar(@$ints)." => ".scalar(@newInts);
 
     open(my $fh, ">", "$sketch.json") or die "ERROR writing to $sketch.json: $!";
     print $fh $json->encode($jsonHash);
@@ -223,68 +219,55 @@ sub subsampleMashSketches{
   my %dist;
 
   my $json = JSON->new;
-  $json->allow_nonref;
-  $json->allow_blessed;
+  $json->allow_nonref;   # can convert a non-reference into its corresponding string
+  $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
+  $json->pretty;         # enables indent, space_before and space_after 
+  for my $jsonFile(glob("$sketchPoolDir/*.msh.json")){
+    my $jsonText = read_file($jsonFile);
+    my $jsonHash = $json->decode($jsonText);
+    my @randInts = shuffle( @{ $$jsonHash{sketches}[0]{hashes} });
+    splice(@randInts,$$settings{'sketch-size'});
+    $$jsonHash{sketches}[0]{hashes} = \@randInts;
+    
+    write_file("$subsampleDir/".basename($jsonFile), $json->encode($jsonHash));
+  }
 
-  # Make distances:
-  # Random integers 10k hashes from reference file.
-  # Compare to see if they exist in other files.
-  my @jsonFile = glob("$sketchPoolDir/*.msh.json");
+  # Make distances
+  my @jsonFile = glob("$subsampleDir/*.json");
   my @name = map {basename($_,qw(.fastq.gz.msh.json))} @jsonFile;
   my $matrix = Bio::Matrix::Generic->new(
     -rownames => \@name,
     -colnames => \@name
   );
   for(my $i=0;$i<@jsonFile;$i++){
+    my $nameI = $name[$i];
     my $jsonText = read_file($jsonFile[$i]);
     my $jsonHash = $json->decode($jsonText);
     my $intI = $$jsonHash{sketches}[0]{hashes};
-    my @randInts = shuffle(@$intI);
-    splice(@randInts,$$settings{'sketch-size'});
     my %intI;
-    @intI{@randInts} = (1) x scalar(@randInts);
-    $matrix->entry($name[$i],$name[$i],0); # diagonal
+    @intI{@$intI} = (1) x scalar(@$intI);
+    $matrix->entry($nameI,$nameI,0);
+    print $name[$i];
     for(my $j=$i+1; $j<@jsonFile;$j++){
-      $jsonText = read_file($jsonFile[$j]);
-      $jsonHash = $json->decode($jsonText);
-      my $distance = 0;
-      for my $int(@{ $$jsonHash{sketches}[0]{hashes} }){
-        if($intI{$int}){
-          $distance++;
-        }
-      }
-      $distance = $distance / scalar(@randInts);
-      logmsg $distance, scalar(@randInts);
-      $matrix->entry($name[$i],$name[$j],$distance);
-      $matrix->entry($name[$j],$name[$i],$distance);
-    }
-  }
-
-  if(0){
-    print "$subsampleDir\n";
-    for(my $i=0;$i<@name;$i++){
-      print $name[$i];
-      for(my $j=0; $j<@name;$j++){
-        print "\t".$matrix->get_entry($name[$i],$name[$j]);
-      }
-      print "\n";
+      my $nameJ = basename($name[$j]);
+      my $distance = mashDist($jsonFile[$i], $jsonFile[$j]);
+      $distance = $distance / scalar(@$intI);
+      $matrix->entry($nameI,$nameJ,$distance);
+      $matrix->entry($nameJ,$nameI,$distance);
+      printf("\t%0.2e",$distance);
     }
     print "\n";
   }
+  print "\n";
 
   # Make tree from distances
   my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
   my $treeObj = $dfactory->make_tree($matrix);
-
-  # Reroot to ensure bootstrapping (not sure if this is necessary but just to be sure)
-  my $rootLeaf = (sort @name)[0];
-  my $sample1Node = (grep{defined($_->id) && $_->id eq $rootLeaf} $treeObj->get_nodes)[0];
-  $treeObj->reroot($sample1Node);
-  print $treeObj->as_text("newick")."\n";
-  # Print tree to file
   open(my $treeFh, ">", "$subsampleDir/tree.dnd") or die "ERROR writing to $subsampleDir/tree.dnd: $!";
   print $treeFh $treeObj->as_text("newick")."\n";
   close $treeFh;
+
+  #print $treeObj->as_text("newick")."\n";
   
   return "$subsampleDir/tree.dnd";
 }
