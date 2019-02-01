@@ -52,8 +52,8 @@ sub main{
   mkdir($$settings{tempdir}) if(!-d $$settings{tempdir});
   logmsg "Temporary directory will be $$settings{tempdir}";
 
-  if($$settings{reps} < 10){
-    logmsg "WARNING: You have very few reps planned on this mashtree run. Recommended reps are at least 10 or 100.";
+  if($$settings{reps} < 100){
+    logmsg "WARNING: You have very few reps planned on this mashtree run. Recommended reps are at least 100.";
   }
   
   ## Catch some options that are not allowed to be passed
@@ -97,17 +97,6 @@ sub main{
   my $observedTree="$$settings{tempdir}/observed.dnd";
   my $outmatrix="$$settings{tempdir}/observeddistances.tsv";
 
-  # New idea!  Mess around with a large sketch file
-  my $sketchPoolDir = makeSketchPool(\@reads, $settings);
-  my @bsTree;
-  for my $rep(0 .. $$settings{reps}-1){
-    my $subsampleDir = "$$settings{tempdir}/rep$rep";
-    mkdir $subsampleDir;
-    my $jackknifeTree = subsampleMashSketches($sketchPoolDir, $subsampleDir, $settings);
-    my $treeObj = Bio::TreeIO->new(-file=>$jackknifeTree)->next_tree;
-    push(@bsTree, $treeObj);
-  }
-  
   # Make the observed directory and run Mash
   logmsg "Running mashtree on full data";
   mkdir($observeddir);
@@ -116,12 +105,43 @@ sub main{
   mv("$observedTree.tmp",$observedTree) or die $?;
   mv("$outmatrix.tmp",$outmatrix) or die $?;
 
+  my @msh = glob("$observeddir/*.msh");
+
+  # Sample the mash sketches with replacement for rapid bootstrapping
+  my @bsThread;
+  my @repNumber = (1..$$settings{reps});
+  my $bs_per_thread = int($$settings{reps} / $$settings{numcpus}) + 1;
+  for my $i(0..$$settings{numcpus}-1){
+    my @reps = splice(@repNumber, 0, $bs_per_thread);
+    $bsThread[$i] = threads->new(sub{
+      my($reps) = @_;
+      my @bootstrapTree;
+      for my $rep(@$reps){
+        my $subsampleDir = "$$settings{tempdir}/rep$rep";
+        mkdir $subsampleDir;
+        logmsg "Initializing rep $rep => $subsampleDir";
+        my $treeFile = subsampleMashSketches(\@msh, $subsampleDir, $settings);
+        push(@bootstrapTree, $treeFile);
+      }
+      return \@bootstrapTree;
+    }, \@reps);
+  }
+
+  my @bsTree;
+  for(@bsThread){
+    for my $file(@{ $_->join }){
+      my $treein = Bio::TreeIO->new(-file=>$file);
+      while(my $tree=$treein->next_tree){
+        push(@bsTree, $tree);
+      }
+    }
+  }
+  
   # Combine trees into a bootstrapped tree and write it 
   # to an output file. Then print it to stdout.
   logmsg "Adding bootstraps to tree";
-  my $biostat=Bio::Tree::Statistics->new;
   my $guideTree=Bio::TreeIO->new(-file=>"$observeddir/tree.dnd")->next_tree;
-  my $bsTree=$biostat->assess_bootstrap(\@bsTree,$guideTree);
+  my $bsTree=assess_bootstrap($guideTree,\@bsTree,$guideTree);
   for my $node($bsTree->get_nodes){
     next if($node->is_Leaf);
     my $id=$node->bootstrap||$node->id||0;
@@ -141,98 +161,43 @@ sub main{
   return 0;
 }
 
-sub makeSketchPool{
-  my($reads, $settings)=@_;
-
-  my @readsCopy = @$reads;
-
-  my @reads_per_thread = ([@readsCopy]);
-  my $tmp_i = 0;
-  if($$settings{numcpus} > 1){
-    @reads_per_thread = part { $tmp_i++ % ($$settings{numcpus}-1) } @readsCopy;
-  }
-
-  my $largeSketchDir = "$$settings{tempdir}/largeSketches";
-  mkdir $largeSketchDir;
-  # Make the sketch size slightly more than double because
-  # some will be truncated.
-  my $sketchSize = int($$settings{'sketch-size'} * 1.1);
-
-  my @thr;
-  for my $i(0..$$settings{numcpus}-1){
-    $thr[$i] = threads->new(sub{
-      my($reads) = @_;
-      for my $r(@$reads){
-        my $prefix = "$largeSketchDir/".basename($r);
-        system("mash sketch -s $sketchSize -o $prefix $r");
-        die if $?;
-      }
-    }, $reads_per_thread[$i]);
-  }
-
-  for(@thr){
-    $_->join;
-  }
-
-  # Truncate all sketches to the largest in-common int.
-  # This will remove any specificity issues for integers
-  # that would have fallen outside of the in-common range
-  # of integers.
-  # First find that largest integer.
-  my $json = JSON->new;
-  $json->allow_nonref;
-  $json->allow_blessed;
-  my $largestInt = ~0; # largest int to start
-  for my $sketch(glob("$largeSketchDir/*.msh")){
-    my $jsonText = `mash info -d $sketch`; die if $?;
-    my $jsonHash = $json->decode($jsonText);
-    #my $jsonHash = from_json($json);
-    my @ints = sort{$b<=>$a} @{ $$jsonHash{sketches}[0]{hashes} };
-    if($ints[0] < $largestInt){
-      $largestInt = $ints[0];
-    }
-  }
-  # Truncate all sketches to largest in-common int.
-  for my $sketch(glob("$largeSketchDir/*.msh")){
-    my $jsonText = `mash info -d $sketch`; die if $?;
-    my $jsonHash = $json->decode($jsonText);
-    my $ints = $$jsonHash{sketches}[0]{hashes};
-    my @newInts;
-    for(my $i=0;$i<@$ints;$i++){
-      if($$ints[$i] <= $largestInt){
-        push(@newInts, $$ints[$i]);
-      }
-    }
-    $$jsonHash{sketches}[0]{hashes} = \@newInts;
-
-    open(my $fh, ">", "$sketch.json") or die "ERROR writing to $sketch.json: $!";
-    print $fh $json->encode($jsonHash);
-    close $fh;
-  }
-
-  return $largeSketchDir;
-}
-
 sub subsampleMashSketches{
-  my($sketchPoolDir, $subsampleDir, $settings) = @_;
-  
+  my($mshArr, $subsampleDir, $settings) = @_;
+
   my %dist;
 
+  # Make JSON files that represent sampling with replacement
+  # of mash hashes
   my $json = JSON->new;
+  $json->utf8;           # If we only expect characters 0..255. Makes it fast.
   $json->allow_nonref;   # can convert a non-reference into its corresponding string
   $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
   $json->pretty;         # enables indent, space_before and space_after 
-  for my $jsonFile(glob("$sketchPoolDir/*.msh.json")){
-    my $jsonText = read_file($jsonFile);
+  for my $msh(@$mshArr){
+    # Make a lock on this msh file while we read it and
+    # convert it to json.
+    open(my $lockFh, ">", "$msh.lock") or die "ERROR: could not make lockfile $msh.lock: $!";
+    flock($lockFh, LOCK_EX) or die "ERROR locking file $msh.lock: $!";
+    my $jsonText = `mash info -d $msh`;
+    close $lockFh;
+
+    # Manipulate the json data
     my $jsonHash = $json->decode($jsonText);
-    my @randInts = shuffle( @{ $$jsonHash{sketches}[0]{hashes} });
-    splice(@randInts,$$settings{'sketch-size'});
-    $$jsonHash{sketches}[0]{hashes} = \@randInts;
+    my $numHashes = scalar(@{ $$jsonHash{sketches}[0]{hashes} });
+    my @randHashesWithReplacement;
+    for(1..$numHashes){
+      my $randIndex = int(rand($numHashes));
+      push(@randHashesWithReplacement,
+        $$jsonHash{sketches}[0]{hashes}[$randIndex]
+      );
+    }
+    $$jsonHash{sketches}[0]{hashes} = \@randHashesWithReplacement;
     
-    write_file("$subsampleDir/".basename($jsonFile), $json->encode($jsonHash));
+    # Write the json data to file
+    write_file("$subsampleDir/".basename($msh).'.json', $json->encode($jsonHash));
   }
 
-  # Make distances
+  # Make distances between all .msh.json files.
   my @jsonFile = glob("$subsampleDir/*.json");
   my @name = map {basename($_,qw(.fastq.gz.msh.json))} @jsonFile;
   my $matrix = Bio::Matrix::Generic->new(
@@ -241,35 +206,81 @@ sub subsampleMashSketches{
   );
   for(my $i=0;$i<@jsonFile;$i++){
     my $nameI = $name[$i];
-    my $jsonText = read_file($jsonFile[$i]);
-    my $jsonHash = $json->decode($jsonText);
-    my $intI = $$jsonHash{sketches}[0]{hashes};
-    my %intI;
-    @intI{@$intI} = (1) x scalar(@$intI);
-    $matrix->entry($nameI,$nameI,0);
-    print $name[$i];
+    $matrix->entry($nameI,$nameI,0.0);
     for(my $j=$i+1; $j<@jsonFile;$j++){
-      my $nameJ = basename($name[$j]);
+      my $nameJ = $name[$j];
       my $distance = mashDist($jsonFile[$i], $jsonFile[$j]);
-      $distance = $distance / scalar(@$intI);
       $matrix->entry($nameI,$nameJ,$distance);
       $matrix->entry($nameJ,$nameI,$distance);
-      printf("\t%0.2e",$distance);
     }
-    print "\n";
   }
-  print "\n";
 
-  # Make tree from distances
-  my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
-  my $treeObj = $dfactory->make_tree($matrix);
-  open(my $treeFh, ">", "$subsampleDir/tree.dnd") or die "ERROR writing to $subsampleDir/tree.dnd: $!";
-  print $treeFh $treeObj->as_text("newick")."\n";
-  close $treeFh;
+  my $numNames = @name;
+  my $phylip = '    ' . $numNames ."\n";
+  my $phylipFile = "$subsampleDir/distances.phylip";
+  for(my $i=0;$i<$numNames;$i++){
+    $phylip .= $name[$i];
+    for(my $j=0;$j<$numNames;$j++){
+      my $distance = sprintf("%0.10f", $matrix->entry($name[$i], $name[$j]));
+      $phylip .= '  ' . $distance;
+    }
+    $phylip .= "\n";
+  }
 
-  #print $treeObj->as_text("newick")."\n";
-  
+  open(my $phylipFh, ">", $phylipFile) or die "ERROR: could not write to $phylipFile: $!";
+  print $phylipFh $phylip;
+  close $phylipFh;
+
+  my $treeObj = createTreeFromPhylip($phylipFile, $subsampleDir, $settings);
+
   return "$subsampleDir/tree.dnd";
+}
+
+# Fixed bootstrapping function from bioperl
+# https://github.com/bioperl/bioperl-live/pull/304
+sub assess_bootstrap{
+   my ($self,$bs_trees,$guide_tree) = @_;
+   my @consensus;
+
+   if(!defined($bs_trees) || ref($bs_trees) ne 'ARRAY'){
+     die "ERROR: second parameter in assess_bootstrap() must be a list";
+   }
+   my $num_bs_trees = scalar(@$bs_trees);
+   if($num_bs_trees < 1){
+     die "ERROR: no bootstrap trees were passed to assess_bootstrap()";
+   }
+
+   # internal nodes are defined by their children
+
+   my (%lookup,%internal);
+   my $i = 0;
+   for my $tree ( $guide_tree, @$bs_trees ) {
+       # Do this as a top down approach, can probably be
+       # improved by caching internal node states, but not going
+       # to worry about it right now.
+
+       my @allnodes = $tree->get_nodes;
+       my @internalnodes = grep { ! $_->is_Leaf } @allnodes;
+       for my $node ( @internalnodes ) {
+           my @tips = sort map { $_->id } 
+                      grep { $_->is_Leaf() } $node->get_all_Descendents;
+           my $id = "(".join(",", @tips).")";
+           if( $i == 0 ) {
+               $internal{$id} = $node->internal_id;
+           } else { 
+               $lookup{$id}++;
+           }
+       }
+       $i++;
+   }
+   #my @save; # unsure why this variable is needed
+   for my $l ( keys %lookup ) {
+       if( defined $internal{$l} ) {#&& $lookup{$l} > $min_seen ) {
+           my $intnode = $guide_tree->find_node(-internal_id => $internal{$l});
+           $intnode->bootstrap(sprintf("%d",100 * $lookup{$l} / $num_bs_trees));
+       }
+   }
+   return $guide_tree;
 }
 
 #######

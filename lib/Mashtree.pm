@@ -199,7 +199,7 @@ sub createTreeFromPhylip{
   # bioperl if there was an error with which quicktree
   if($?){
     logmsg "DEPRECATION WARNING: CANNOT FIND QUICKTREE IN YOUR PATH. I will use BioPerl to make the tree this time, but it will be removed in the next version.";
-    logmsg "Creating tree with BioPerl";
+    #logmsg "Creating tree with BioPerl";
     my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
     my $matrix   = Bio::Matrix::IO->new(-format=>"phylip", -file=>$phylip)->next_matrix;
     $treeObj = $dfactory->make_tree($matrix);
@@ -210,7 +210,7 @@ sub createTreeFromPhylip{
   }
   # quicktree
   else {
-    logmsg "Creating tree with QuickTree";
+    #logmsg "Creating tree with QuickTree";
     system("quicktree -in m $phylip > $outdir/tree.dnd.tmp");
     die "ERROR with quicktree" if $?;
     $treeObj=Bio::TreeIO->new(-file=>"$outdir/tree.dnd.tmp")->next_tree;
