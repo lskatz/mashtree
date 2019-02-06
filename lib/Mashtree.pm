@@ -25,13 +25,13 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "0.38";
+our $VERSION = "0.39";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
 our @bamExt=qw(.sorted.bam .bam);
 our @vcfExt=qw(.vcf.gz .vcf);
-our @mshExt=qw(.msh);
+our @mshExt=qw(.msh .msh.json);
 # Richseq extensions were obtained mostly from bioperl under
 # the genbank, embl, and swissprot entries, under
 # the source for Bio::SeqIO
@@ -326,34 +326,43 @@ sub mashDist{
   return $mash_distance;
 }
 
+# TODO use JSON module to parse instead
 sub mashHashes{
   my($sketch)=@_;
   my @hash;
   my $length = 0;
   my $kmer   = 0;
 
-  my $fh;
   if($sketch =~ /\.msh$/){
-    open($fh, "mash info -d $sketch | ") or die "ERROR: could not run mash info -d on $sketch: $!";
-  } elsif($sketch =~ /\.json$/){
-    open($fh, $sketch) or die "ERROR: could not read $sketch: $!";
-  }
-  while(<$fh>){
-    if(/kmer\D+(\d+)/){
-      $kmer = $1;
-    }
-    elsif(/length\D+(\d+)/){
-      $length = $1;
-    }
-    elsif(/hashes/){
-      while(<$fh>){
-        last if(/\]/);
-        next if(!/\d/);
-        s/\D+//g;
-        s/^\s+|\s+$//g;
-        push(@hash, $_);
+    die "=================== $sketch";
+    open(my $fh, "mash info -d $sketch | ") or die "ERROR: could not run mash info -d on $sketch: $!";
+    while(<$fh>){
+      if(/kmer\D+(\d+)/){
+        $kmer = $1;
+      }
+      elsif(/length\D+(\d+)/){
+        $length = $1;
+      }
+      elsif(/hashes/){
+        while(<$fh>){
+          last if(/\]/);
+          next if(!/\d/);
+          s/\D+//g;
+          s/^\s+|\s+$//g;
+          push(@hash, $_);
+        }
       }
     }
+
+  } elsif($sketch =~ /\.json$/){
+    my $json = JSON->new;
+    $json->utf8;           # If we only expect characters 0..255. Makes it fast.
+    $json->allow_nonref;   # can convert a non-reference into its corresponding string
+    $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference
+    $json->pretty;         # enables indent, space_before and space_after
+    
+    my $jsonHash = $json->decode(file_open($sketch));
+    die Dumper $jsonHash;
   }
   return (\@hash, $kmer, $length);
 }

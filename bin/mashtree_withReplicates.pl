@@ -40,7 +40,7 @@ exit main();
 
 sub main{
   my $settings={};
-  my @wrapperOptions=qw(help sketch-size=i outmatrix=s tempdir=s reps=i numcpus=i);
+  my @wrapperOptions=qw(help bstrees=s sketch-size=i outmatrix=s tempdir=s reps=i numcpus=i);
   GetOptions($settings,@wrapperOptions) or die $!;
   $$settings{reps}||=0;
   $$settings{numcpus}||=1;
@@ -128,13 +128,22 @@ sub main{
   }
 
   my @bsTree;
-  for(@bsThread){
-    for my $file(@{ $_->join }){
+  for my $t(@bsThread){
+    my $treesArr = $t->join;
+    for my $file(@$treesArr){
       my $treein = Bio::TreeIO->new(-file=>$file);
       while(my $tree=$treein->next_tree){
         push(@bsTree, $tree);
       }
     }
+  }
+
+  if($$settings{bstrees}){
+    my $treeout = Bio::TreeIO->new(-file=>'>'.$$settings{bstrees});
+    for(@bsTree){
+      $treeout->write_tree($_);
+    }
+    $treeout->close;
   }
   
   # Combine trees into a bootstrapped tree and write it 
@@ -173,28 +182,44 @@ sub subsampleMashSketches{
   $json->allow_nonref;   # can convert a non-reference into its corresponding string
   $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
   $json->pretty;         # enables indent, space_before and space_after 
+  my $mshCounter = 0;
   for my $msh(@$mshArr){
     # Make a lock on this msh file while we read it and
     # convert it to json.
     open(my $lockFh, ">", "$msh.lock") or die "ERROR: could not make lockfile $msh.lock: $!";
     flock($lockFh, LOCK_EX) or die "ERROR locking file $msh.lock: $!";
     my $jsonText = `mash info -d $msh`;
+    flock($lockFh, LOCK_UN) or die "Cannot unlock $msh.lock: $!";
     close $lockFh;
 
     # Manipulate the json data
     my $jsonHash = $json->decode($jsonText);
     my $numHashes = scalar(@{ $$jsonHash{sketches}[0]{hashes} });
-    my @randHashesWithReplacement;
-    for(1..$numHashes){
-      my $randIndex = int(rand($numHashes));
-      push(@randHashesWithReplacement,
-        $$jsonHash{sketches}[0]{hashes}[$randIndex]
-      );
+
+=cut
+    # Select random bootstrap columns by only randomizing
+    # one mash file's sketches.
+    if($mshCounter == 0){
+      print "$msh $mshCounter ()0\n";  
+      my @randHashesWithReplacement;
+      for(1..$numHashes){
+        my $randIndex = int(rand($numHashes));
+        push(@randHashesWithReplacement,
+          $$jsonHash{sketches}[0]{hashes}[$randIndex]
+        );
+      }
+      # the hashes have to be sorted to work well with 
+      # mashDist() later on.
+      @randHashesWithReplacement = sort {$a <=> $b} @randHashesWithReplacement;
+      $$jsonHash{sketches}[0]{hashes} = \@randHashesWithReplacement;
     }
-    $$jsonHash{sketches}[0]{hashes} = \@randHashesWithReplacement;
+    #logmsg "hash[99]: ".$$jsonHash{sketches}[0]{hashes}[99];
+=cut
     
     # Write the json data to file
     write_file("$subsampleDir/".basename($msh).'.json', $json->encode($jsonHash));
+
+    $mshCounter++;
   }
 
   # Make distances between all .msh.json files.
@@ -295,6 +320,7 @@ sub usage{
                             If zero, no bootstrapping.
                             Bootstrapping will only work on compressed fastq
                             files.
+  --bstrees            ''   If supplied, where bootstrap trees will be saved
   --numcpus            1    This will be passed to mashtree and will
                             be used to multithread reps.
   

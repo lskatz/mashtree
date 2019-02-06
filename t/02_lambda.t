@@ -62,7 +62,10 @@ subtest "Test matrix" => sub {
     chomp($distances);
     my($label,@dist)=split /\t/,$distances;
     for(my $i=0;$i<@header;$i++){
-      is $dist[$i], $matrix{$label}{$header[$i]}, "Distance between $label and $header[$i] (should be $dist[$i])";
+      # Round to 8 digits to be compliant with Mash
+      my $got      = sprintf("%0.8f", $dist[$i]);
+      my $expected = sprintf("%0.8f", $matrix{$label}{$header[$i]});
+      is $got, $expected, "Distance between $label and $header[$i] (should be $dist[$i])";
     }
   }
   close MATRIX;

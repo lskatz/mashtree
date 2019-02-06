@@ -19,7 +19,7 @@ use threads::shared;
 
 use FindBin;
 use lib "$FindBin::RealBin/../lib";
-use Mashtree qw/logmsg @fastqExt @fastaExt @mshExt @richseqExt _truncateFilename createTreeFromPhylip $MASHTREE_VERSION/;
+use Mashtree qw/logmsg mashDist @fastqExt @fastaExt @mshExt @richseqExt _truncateFilename createTreeFromPhylip $MASHTREE_VERSION/;
 use Mashtree::Db;
 use Bio::Tree::DistanceFactory;
 use Bio::Matrix::IO;
@@ -275,21 +275,23 @@ sub mashSketch{
     }
       
     # See if the user already mashed this file locally
+    my $should_skip_mash_step=0;
     if(-e "$fastq.msh"){
       logmsg "Found locally mashed file $fastq.msh. I will use it.";
       copy("$fastq.msh","$outPrefix.msh");
+      $should_skip_mash_step=1;
     }
     if(grep {$_ eq $fileExt} @mshExt){
       logmsg "Input file is a sketch file itself and will be used as such: $fastq";
-      copy($fastq, "$outPrefix.msh");
+      copy($fastq, "$outPrefix.$fileExt");
+      $should_skip_mash_step=1;
     }
-
-    if(-e "$outPrefix.msh"){
-      logmsg "WARNING: ".basename($fastq)." was already mashed.";
-    } elsif(-s $fastq < 1){
+    if(-s $fastq < 1){
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
       next;
-    } else {
+    }
+
+    if(! $should_skip_mash_step){
       my $sketchCommand="mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq 2>&1";
       my $stdout = `$sketchCommand`;
       if ($?){
@@ -340,7 +342,7 @@ sub mashDistance{
   # Initialize the threads
   my @thr;
   for(0..$$settings{numthreads}-1){
-    $thr[$_]=threads->new(\&mashDist,$outdir,$threadArr[$_],$mshListFilename,$mashtreeDbFilename,$settings);
+    $thr[$_]=threads->new(\&individualMashDist,$outdir,$threadArr[$_],$mshListFilename,$mashtreeDbFilename,$settings);
   }
 
   for(@thr){
@@ -367,7 +369,7 @@ sub mashDistance{
 }
 
 # Individual mash distance
-sub mashDist{
+sub individualMashDist{
   my($outdir,$mshArr,$mshList,$mashtreeDbFilename,$settings)=@_;
 
   # One distance file for all queries in this thread
@@ -376,12 +378,17 @@ sub mashDist{
   my $numQueries=0;
   my $mashtreeDb=Mashtree::Db->new($mashtreeDbFilename);
   for my $msh(@$mshArr){
-    #my $outfile="$outdir/".basename($msh).".tsv";
     logmsg "Distances for $msh";
-    system("mash dist -t $msh -l $mshList >> $distFile");
-    die "ERROR with 'mash dist -t $msh -l $mshList'" if $?;
+    print $distFileFh "#query\t$msh\n";
+    open(my $listFh, "<", $mshList) or die "ERROR: could not read list of sketches $mshList: $!";
+    while(my $msh2 = <$listFh>){
+      chomp($msh2);
+      my $distance = mashDist($msh, $msh2);
+      print $distFileFh "$msh2\t$distance\n";
+    }
     $numQueries++;
   }
+  close $distFileFh; # flush
 
   # If there is anything to add to the database, lock
   # the database.  Only lock it once per thread, optimally.
