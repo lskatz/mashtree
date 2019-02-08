@@ -16,7 +16,7 @@ use List::MoreUtils qw/part/;
 use POSIX qw/floor/;
 use JSON;
 
-use Fcntl qw/:flock LOCK_EX/;
+use Fcntl qw/:flock LOCK_EX LOCK_UN/;
 
 use threads;
 use Thread::Queue;
@@ -30,7 +30,6 @@ use Bio::SeqIO;
 use Bio::TreeIO;
 use Bio::Tree::DistanceFactory;
 use Bio::Tree::Statistics;
-use Bio::Matrix::Generic;
 
 my $writeStick :shared;
 
@@ -98,7 +97,7 @@ sub main{
   my $outmatrix="$$settings{tempdir}/observeddistances.tsv";
 
   # Make the observed directory and run Mash
-  logmsg "Running mashtree on full data";
+  logmsg "Running mashtree on full data (".scalar(@reads)." targets)";
   mkdir($observeddir);
   system("$FindBin::RealBin/mashtree --outmatrix $outmatrix.tmp --tempdir $observeddir --numcpus $$settings{numcpus} $mashOptions $reads > $observedTree.tmp");
   die if $?;
@@ -111,25 +110,26 @@ sub main{
   my @bsThread;
   my @repNumber = (1..$$settings{reps});
   my $bs_per_thread = int($$settings{reps} / $$settings{numcpus}) + 1;
+  my @reps;
+  # added this extra for loop to make sure that @reps is 
+  # kind of global and read only. Hopefully side steps
+  # the scalar leak warning.
   for my $i(0..$$settings{numcpus}-1){
-    my @reps = splice(@repNumber, 0, $bs_per_thread);
-    $bsThread[$i] = threads->new(sub{
-      my($reps) = @_;
-      my @bootstrapTree;
-      for my $rep(@$reps){
-        my $subsampleDir = "$$settings{tempdir}/rep$rep";
-        mkdir $subsampleDir;
-        logmsg "Initializing rep $rep => $subsampleDir";
-        my $treeFile = subsampleMashSketches(\@msh, $subsampleDir, $settings);
-        push(@bootstrapTree, $treeFile);
-      }
-      return \@bootstrapTree;
-    }, \@reps);
+    $reps[$i] = [splice(@repNumber, 0, $bs_per_thread)];
+  }
+
+  for my $i(0..$$settings{numcpus}-1){
+    my %settingsCopy = %$settings;
+    $bsThread[$i] = threads->new(\&subsampleMashSketchesWorker, \@msh, $reps[$i], \%settingsCopy);
   }
 
   my @bsTree;
-  for(@bsThread){
-    for my $file(@{ $_->join }){
+  for my $thr(@bsThread){
+    my $fileArr = $thr->join;
+    if(ref($fileArr) ne 'ARRAY'){
+      die Dumper [$fileArr,"ERROR: not an array!"];
+    }
+    for my $file(@$fileArr){
       my $treein = Bio::TreeIO->new(-file=>$file);
       while(my $tree=$treein->next_tree){
         push(@bsTree, $tree);
@@ -161,79 +161,94 @@ sub main{
   return 0;
 }
 
-sub subsampleMashSketches{
-  my($mshArr, $subsampleDir, $settings) = @_;
+sub subsampleMashSketchesWorker{
+  my($mshArr, $reps, $settings) = @_;
 
-  my %dist;
+  my @treeFile;
+  my $numReps = @$reps;
+  for(my $repI=0;$repI<@$reps;$repI++){
+    my $rep = $$reps[$repI];
 
-  # Make JSON files that represent sampling with replacement
-  # of mash hashes
-  my $json = JSON->new;
-  $json->utf8;           # If we only expect characters 0..255. Makes it fast.
-  $json->allow_nonref;   # can convert a non-reference into its corresponding string
-  $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
-  $json->pretty;         # enables indent, space_before and space_after 
-  for my $msh(@$mshArr){
-    # Make a lock on this msh file while we read it and
-    # convert it to json.
-    open(my $lockFh, ">", "$msh.lock") or die "ERROR: could not make lockfile $msh.lock: $!";
-    flock($lockFh, LOCK_EX) or die "ERROR locking file $msh.lock: $!";
-    my $jsonText = `mash info -d $msh`;
-    close $lockFh;
+    my $subsampleDir = "$$settings{tempdir}/rep$rep";
+    mkdir $subsampleDir;
+    logmsg "rep$rep: $subsampleDir";
 
-    # Manipulate the json data
-    my $jsonHash = $json->decode($jsonText);
-    my $numHashes = scalar(@{ $$jsonHash{sketches}[0]{hashes} });
-    my @randHashesWithReplacement;
-    for(1..$numHashes){
-      my $randIndex = int(rand($numHashes));
-      push(@randHashesWithReplacement,
-        $$jsonHash{sketches}[0]{hashes}[$randIndex]
-      );
+    my %dist;
+
+    # Make JSON files that represent sampling with replacement
+    # of mash hashes
+    my $json = JSON->new;
+    $json->utf8;           # If we only expect characters 0..255. Makes it fast.
+    $json->allow_nonref;   # can convert a non-reference into its corresponding string
+    $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
+    $json->pretty;         # enables indent, space_before and space_after 
+    my $mshCounter = 0;
+    for my $msh(@$mshArr){
+      # Make a lock on this msh file while we read it and
+      # convert it to json.
+      open(my $lockFh, ">", "$msh.lock") or die "ERROR: could not make lockfile $msh.lock: $!";
+      flock($lockFh, LOCK_EX) or die "ERROR locking file $msh.lock: $!";
+      my $jsonText = `mash info -d $msh`;
+      flock($lockFh, LOCK_UN);
+      close $lockFh;
+      unlink("$msh.lock"); # be extra sure the lock is gone
+
+      # Manipulate the json data
+      my $jsonHash = $json->decode($jsonText);
+      my $numHashes = scalar(@{ $$jsonHash{sketches}[0]{hashes} });
+
+      if($mshCounter==0){
+        my $keepHashes = int($numHashes / 2); # based on half the hashes
+        my @subsampleHash = @{ $$jsonHash{sketches}[0]{hashes} };
+        @subsampleHash = (shuffle(@subsampleHash))[0..$keepHashes-1];
+        @subsampleHash = sort{$a<=>$b} @subsampleHash;
+        $$jsonHash{sketches}[0]{hashes} = \@subsampleHash;
+        $$jsonHash{sketchSize} = scalar(@{ $$jsonHash{sketches}[0]{hashes} });
+      }
+
+      # Write the json data to file
+      write_file("$subsampleDir/".basename($msh).'.json', $json->encode($jsonHash));
+
+      $mshCounter++;
     }
-    $$jsonHash{sketches}[0]{hashes} = \@randHashesWithReplacement;
-    
-    # Write the json data to file
-    write_file("$subsampleDir/".basename($msh).'.json', $json->encode($jsonHash));
+
+    # Make distances between all .msh.json files.
+    my @jsonFile = glob("$subsampleDir/*.json");
+    my @name;
+    for(my $i=0;$i<@jsonFile;$i++){
+      $name[$i] = basename($jsonFile[$i]);
+      $name[$i]=~s/\.f.*q\.gz(\.msh)?(\.json)?$//;
+    }
+    my $distFile   = "$subsampleDir/distances.tsv";
+    open(my $distFileFh, ">", $distFile) or die "ERROR: could not write to $distFile: $!";
+    for(my $i=0;$i<@jsonFile;$i++){
+      my $nameI = $name[$i];
+      # Buffer the string per entry so that we can see some
+      # progress but still save on disk I/O.
+      my $distEntry = "#query $nameI\n$nameI\t0.0\n";
+      for(my $j=$i+1; $j<@jsonFile;$j++){
+        my $nameJ = $name[$j];
+        my $distance = mashDist($jsonFile[$i], $jsonFile[$j]);
+        $distEntry.="$nameJ\t$distance\n";
+      }
+      print $distFileFh $distEntry;
+    }
+    close $distFileFh;
+
+    # Add distances to database
+    my $mashtreeDb = Mashtree::Db->new("$subsampleDir/distances.sqlite");
+    $mashtreeDb->addDistances($distFile);
+    # Convert to Phylip
+    my $phylipFile = "$subsampleDir/distances.phylip";
+    open(my $phylipFh, ">", $phylipFile) or die "ERROR: could not write to $phylipFile: $!";
+    print $phylipFh $mashtreeDb->toString(\@name, "phylip");
+    close $phylipFh;
+
+    my $treeObj = createTreeFromPhylip($phylipFile, $subsampleDir, $settings);
+    push(@treeFile, "$subsampleDir/tree.dnd");
   }
 
-  # Make distances between all .msh.json files.
-  my @jsonFile = glob("$subsampleDir/*.json");
-  my @name = map {basename($_,qw(.fastq.gz.msh.json))} @jsonFile;
-  my $matrix = Bio::Matrix::Generic->new(
-    -rownames => \@name,
-    -colnames => \@name
-  );
-  for(my $i=0;$i<@jsonFile;$i++){
-    my $nameI = $name[$i];
-    $matrix->entry($nameI,$nameI,0.0);
-    for(my $j=$i+1; $j<@jsonFile;$j++){
-      my $nameJ = $name[$j];
-      my $distance = mashDist($jsonFile[$i], $jsonFile[$j]);
-      $matrix->entry($nameI,$nameJ,$distance);
-      $matrix->entry($nameJ,$nameI,$distance);
-    }
-  }
-
-  my $numNames = @name;
-  my $phylip = '    ' . $numNames ."\n";
-  my $phylipFile = "$subsampleDir/distances.phylip";
-  for(my $i=0;$i<$numNames;$i++){
-    $phylip .= $name[$i];
-    for(my $j=0;$j<$numNames;$j++){
-      my $distance = sprintf("%0.10f", $matrix->entry($name[$i], $name[$j]));
-      $phylip .= '  ' . $distance;
-    }
-    $phylip .= "\n";
-  }
-
-  open(my $phylipFh, ">", $phylipFile) or die "ERROR: could not write to $phylipFile: $!";
-  print $phylipFh $phylip;
-  close $phylipFh;
-
-  my $treeObj = createTreeFromPhylip($phylipFile, $subsampleDir, $settings);
-
-  return "$subsampleDir/tree.dnd";
+  return \@treeFile;
 }
 
 # Fixed bootstrapping function from bioperl

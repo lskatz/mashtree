@@ -25,7 +25,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "0.38";
+our $VERSION = "0.39";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
@@ -356,6 +356,34 @@ sub mashHashes{
     }
   }
   return (\@hash, $kmer, $length);
+}
+
+sub _raw_mash_distance{
+  my($hashes1, $hashes2) = @_;
+
+  my (%sketch1,%sketch2);
+  @sketch1{@$hashes1} = (1) x scalar(@$hashes1);
+  @sketch1{@$hashes2} = (1) x scalar(@$hashes2);
+
+  my %union;
+  my %seen;
+  for my $h(@$hashes1){
+    if($sketch2{$h}){
+      $union{$h}++;
+    }
+    $seen{$h}++;
+  }
+  for my $h(@$hashes2){
+    if($sketch1{$h}){
+      $union{$h}++;
+    }
+    $seen{$h}++;
+  }
+
+  my $common = scalar(keys(%union));
+  my $total  = scalar(keys(%seen));
+
+  return($common,$total);
 }
 
 # https://github.com/onecodex/finch-rs/blob/master/src/distance.rs#L34
