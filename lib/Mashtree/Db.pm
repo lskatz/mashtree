@@ -341,6 +341,9 @@ sub toString_phylip{
     my $distanceHash=$self->findDistances($name[$i]);
 
     for(my $j=0;$j<$numGenomes;$j++){
+      if(!defined($$distanceHash{$name[$j]})){
+        logmsg "WARNING: could not find distance for $name[$i] and $name[$j]";
+      }
       $str.=sprintf("%0.10f  ",$$distanceHash{$name[$j]});
     }
     $str=~s/ +$/\n/; # replace that trailing whitespace with a newline
