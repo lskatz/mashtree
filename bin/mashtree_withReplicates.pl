@@ -16,7 +16,7 @@ use List::MoreUtils qw/part/;
 use POSIX qw/floor/;
 use JSON;
 
-use Fcntl qw/:flock LOCK_EX LOCK_UN/;
+#use Fcntl qw/:flock LOCK_EX LOCK_UN/;
 
 use threads;
 use Thread::Queue;
@@ -95,6 +95,9 @@ sub main{
   my $obsDistances="$observeddir/distances.phylip";
   my $observedTree="$$settings{tempdir}/observed.dnd";
   my $outmatrix="$$settings{tempdir}/observeddistances.tsv";
+  my $mshList = "$$settings{tempdir}/mash.list";
+  my $mergedMash = "$$settings{tempdir}/merged.msh";
+  my $mergedJSON = "$$settings{tempdir}/merged.msh.json.gz";
 
   # Make the observed directory and run Mash
   logmsg "Running mashtree on full data (".scalar(@reads)." targets)";
@@ -104,23 +107,46 @@ sub main{
   mv("$observedTree.tmp",$observedTree) or die $?;
   mv("$outmatrix.tmp",$outmatrix) or die $?;
 
+  # Merge the mash files to make the threads go faster later
   my @msh = glob("$observeddir/*.msh");
+  open(my $mshListFh, ">", $mshList) or die "ERROR writing to mash list $mshList: $!";
+  for(@msh){
+    print $mshListFh $_."\n";
+  }
+  close $mshListFh;
+  system("mash paste -l $mergedMash $mshList >&2"); die "ERROR merging mash files" if $?; 
+  system("mash info -d $mergedMash | gzip -c > $mergedJSON");
+  die "ERROR with mash info | gzip -c" if $?;
+  unlink($_) for(@msh); # remove redundant files to the merged msh
+  
+  # Make JSON files that represent sampling with replacement
+  # of mash hashes
+  logmsg "Reading huge JSON file describing all mash distances, $mergedJSON";
+  my $json = JSON->new;
+  $json->utf8;           # If we only expect characters 0..255. Makes it fast.
+  $json->allow_nonref;   # can convert a non-reference into its corresponding string
+  $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
+  $json->pretty;         # enables indent, space_before and space_after 
+  my $mashInfoStr = `gzip -cd $mergedJSON`; 
+  die "ERROR running gzip -cd $mergedJSON: $!" if $?;
+  my $mashInfoHash = $json->decode($mashInfoStr);
+  $mashInfoStr=""; # clear some ram
+
+  # Round-robin sample the replicate number, so that it's
+  # well-balanced.
+  my @repNumber = (1..$$settings{reps});
+  my @reps;
+  for(my $i=0;$i<$$settings{reps};$i++){
+    my $thrIndex = $i % $$settings{numcpus};
+    push(@{$reps[$thrIndex]}, $i);
+    #$reps[$thrIndex].="$i ";
+  }
 
   # Sample the mash sketches with replacement for rapid bootstrapping
   my @bsThread;
-  my @repNumber = (1..$$settings{reps});
-  my $bs_per_thread = int($$settings{reps} / $$settings{numcpus}) + 1;
-  my @reps;
-  # added this extra for loop to make sure that @reps is 
-  # kind of global and read only. Hopefully side steps
-  # the scalar leak warning.
-  for my $i(0..$$settings{numcpus}-1){
-    $reps[$i] = [splice(@repNumber, 0, $bs_per_thread)];
-  }
-
   for my $i(0..$$settings{numcpus}-1){
     my %settingsCopy = %$settings;
-    $bsThread[$i] = threads->new(\&subsampleMashSketchesWorker, \@msh, $reps[$i], \%settingsCopy);
+    $bsThread[$i] = threads->new(\&subsampleMashSketchesWorker, $mashInfoHash, $reps[$i], \%settingsCopy);
   }
 
   my @bsTree;
@@ -162,10 +188,18 @@ sub main{
 }
 
 sub subsampleMashSketchesWorker{
-  my($mshArr, $reps, $settings) = @_;
+  my($mashInfoHash, $reps, $settings) = @_;
+
+  my $json = JSON->new;
+  $json->utf8;           # If we only expect characters 0..255. Makes it fast.
+  $json->allow_nonref;   # can convert a non-reference into its corresponding string
+  $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
+  $json->pretty;         # enables indent, space_before and space_after 
 
   my @treeFile;
   my $numReps = @$reps;
+  my $numSketches = scalar(@{ $$mashInfoHash{sketches} });
+  logmsg "Initializing thread with $numReps replicates";
   for(my $repI=0;$repI<@$reps;$repI++){
     my $rep = $$reps[$repI];
 
@@ -173,67 +207,33 @@ sub subsampleMashSketchesWorker{
     mkdir $subsampleDir;
     logmsg "rep$rep: $subsampleDir";
 
-    my %dist;
+    # Start off a distances file
+    my $distFile = "$subsampleDir/distances.tsv";
+    open(my $distFh, ">", $distFile) or die "ERROR writing to $distFile: $!";
 
-    # Make JSON files that represent sampling with replacement
-    # of mash hashes
-    my $json = JSON->new;
-    $json->utf8;           # If we only expect characters 0..255. Makes it fast.
-    $json->allow_nonref;   # can convert a non-reference into its corresponding string
-    $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
-    $json->pretty;         # enables indent, space_before and space_after 
-    my $mshCounter = 0;
-    for my $msh(@$mshArr){
-      # Make a lock on this msh file while we read it and
-      # convert it to json.
-      open(my $lockFh, ">", "$msh.lock") or die "ERROR: could not make lockfile $msh.lock: $!";
-      flock($lockFh, LOCK_EX) or die "ERROR locking file $msh.lock: $!";
-      my $jsonText = `mash info -d $msh`;
-      flock($lockFh, LOCK_UN);
-      close $lockFh;
-      unlink("$msh.lock"); # be extra sure the lock is gone
-
-      # Manipulate the json data
-      my $jsonHash = $json->decode($jsonText);
-      my $numHashes = scalar(@{ $$jsonHash{sketches}[0]{hashes} });
-
-      if($mshCounter==0){
-        my $keepHashes = int($numHashes / 2); # based on half the hashes
-        my @subsampleHash = @{ $$jsonHash{sketches}[0]{hashes} };
-        @subsampleHash = (shuffle(@subsampleHash))[0..$keepHashes-1];
-        @subsampleHash = sort{$a<=>$b} @subsampleHash;
-        $$jsonHash{sketches}[0]{hashes} = \@subsampleHash;
-        $$jsonHash{sketchSize} = scalar(@{ $$jsonHash{sketches}[0]{hashes} });
-      }
-
-      # Write the json data to file
-      write_file("$subsampleDir/".basename($msh).'.json', $json->encode($jsonHash));
-
-      $mshCounter++;
-    }
-
-    # Make distances between all .msh.json files.
-    my @jsonFile = glob("$subsampleDir/*.json");
     my @name;
-    for(my $i=0;$i<@jsonFile;$i++){
-      $name[$i] = basename($jsonFile[$i]);
-      $name[$i]=~s/\.f.*q\.gz(\.msh)?(\.json)?$//;
-    }
-    my $distFile   = "$subsampleDir/distances.tsv";
-    open(my $distFileFh, ">", $distFile) or die "ERROR: could not write to $distFile: $!";
-    for(my $i=0;$i<@jsonFile;$i++){
-      my $nameI = $name[$i];
-      # Buffer the string per entry so that we can see some
-      # progress but still save on disk I/O.
-      my $distEntry = "#query $nameI\n$nameI\t0.0\n";
-      for(my $j=$i+1; $j<@jsonFile;$j++){
-        my $nameJ = $name[$j];
-        my $distance = mashDist($jsonFile[$i], $jsonFile[$j]);
-        $distEntry.="$nameJ\t$distance\n";
+    for(my $sketchCounter=0; $sketchCounter<$numSketches; $sketchCounter++){
+
+      # subsample the hashes of one genome at a time as compared
+      # to the other genomes, to get a jack knife distance.
+      my $numHashes = scalar(@{ $$mashInfoHash{sketches}[$sketchCounter]{hashes} });
+      my $keepHashes = int($numHashes / 2); # based on half the hashes
+      my @subsampleHash = @{ $$mashInfoHash{sketches}[$sketchCounter]{hashes} };
+      @subsampleHash = (shuffle(@subsampleHash))[0..$keepHashes-1];
+      @subsampleHash = sort{$a<=>$b} @subsampleHash;
+
+      my $nameI = $$mashInfoHash{sketches}[$sketchCounter]{name};
+      my $distStr = "#query $nameI\n"; # buffer string before printing to file
+      push(@name, $nameI);
+      for(my $j=0; $j<$numSketches; $j++){
+        my $nameJ = $$mashInfoHash{sketches}[$j]{name};
+        my $distance = mashDist(\@subsampleHash, $$mashInfoHash{sketches}[$j]{hashes});
+        $distStr.="$nameJ\t$distance\n";
       }
-      print $distFileFh $distEntry;
+      print $distFh $distStr;
     }
-    close $distFileFh;
+    close $distFh;
+
 
     # Add distances to database
     my $mashtreeDb = Mashtree::Db->new("$subsampleDir/distances.sqlite");

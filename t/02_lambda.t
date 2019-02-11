@@ -18,11 +18,16 @@ $correctMashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 
 # Test to see if the correct tree is made
 END{unlink "lambdadist.tsv";}
-my $mashtree=`mashtree --outmatrix lambdadist.tsv --numcpus 1 t/lambda/*.fastq.gz`;
+my $mashtree=`mashtree --outmatrix lambdadist.tsv --numcpus 1 t/lambda/*.fastq.gz 2>/dev/null`;
 chomp($mashtree);
 $mashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 my $dist=treeDist($mashtree,$correctMashtree);
-is $dist , 0, "Lambda test set tree";
+is $dist , 0, "Lambda test set tree, distance should be zero between trees";
+if($dist!=0){
+  note "Correct tree: $correctMashtree";
+  note "This tree:    $mashtree";
+  BAIL_OUT("Incorrect tree found. Will not continue.");
+}
 
 # Test for the correct distance matrix
 my %matrix=(

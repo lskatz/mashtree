@@ -36,7 +36,7 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help file-of-files outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version)) or die $!;
+  GetOptions($settings,qw(help file-of-files outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version save-sketches:s)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -293,12 +293,24 @@ sub mashSketch{
       my $sketchCommand="mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq 2>&1";
       my $stdout = `$sketchCommand`;
       if ($?){
-        logmsg "ERROR running $sketchCommand!";
+        logmsg "ERROR running $sketchCommand!\n  $stdout";
         die;
       }
     }
 
     push(@msh,"$outPrefix.msh");
+
+    if($$settings{'save-sketches'}){
+      my $dir=$$settings{'save-sketches'};
+      my $target = "$fastq.msh";
+      if(defined($dir)){
+        $target = "$dir/".basename($fastq).".msh";
+      }
+      #try to hard link because this is basically a read-only file,
+      #but if not, copying is fine.
+      link("$outPrefix.msh", $target) || copy("$outPrefix.msh", $target)
+        || die "ERROR hard-linking or copying $outPrefix.msh to $target: $!";
+    }
   }
 
   system("rm -rf $tempdir");
@@ -464,6 +476,10 @@ sub usage{
                             this file and not to stdout. Log messages
                             will still go to stderr.
   --version                 Display the version and exit
+  --save-sketches      ''   If a directory is supplied, then sketches
+                            will be saved in it.
+                            If no directory is supplied, then sketches
+                            will be saved alongside source files.
 
   TREE OPTIONS
   --truncLength        250  How many characters to keep in a filename
