@@ -309,10 +309,23 @@ sub treeDist{
 }
 
 # Find the distance between two mash sketch files
+# Alternatively: two hash lists.
 sub mashDist{
   my($file1, $file2, $settings)=@_;
-  my ($hashes1, $kmer1, $length1) = mashHashes($file1);
-  my ($hashes2, $kmer2, $length2) = mashHashes($file2);
+
+  my($hashes1, $hashes2, $kmer1, $kmer2);
+  if(ref($file1) eq 'ARRAY'){
+    $hashes1 = $file1;
+    $kmer1 = -1;
+  } else {
+    ($hashes1, $kmer1) = mashHashes($file1);
+  }
+  if(ref($file2) eq 'ARRAY'){
+    $hashes2 = $file2;
+    $kmer2 = -1;
+  } else {
+    ($hashes2, $kmer2) = mashHashes($file2);
+  }
 
   if($kmer1 ne $kmer2){
     die "ERROR: kmer lengths do not match($kmer1 vs $kmer2)";
