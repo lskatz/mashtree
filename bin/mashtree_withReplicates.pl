@@ -39,11 +39,10 @@ exit main();
 
 sub main{
   my $settings={};
-  my @wrapperOptions=qw(help sketch-size=i outmatrix=s tempdir=s reps=i numcpus=i);
+  my @wrapperOptions=qw(help outmatrix=s tempdir=s reps=i numcpus=i);
   GetOptions($settings,@wrapperOptions) or die $!;
-  $$settings{reps}||=0;
+  $$settings{reps}//=1;
   $$settings{numcpus}||=1;
-  $$settings{'sketch-size'}||=10000;
   die usage() if($$settings{help});
   die usage() if(@ARGV < 1);
 
@@ -51,6 +50,9 @@ sub main{
   mkdir($$settings{tempdir}) if(!-d $$settings{tempdir});
   logmsg "Temporary directory will be $$settings{tempdir}";
 
+  if($$settings{reps} < 1){
+    die "ERROR: no reps were given!";
+  }
   if($$settings{reps} < 100){
     logmsg "WARNING: You have very few reps planned on this mashtree run. Recommended reps are at least 100.";
   }
@@ -72,9 +74,6 @@ sub main{
   # sake.
   if(grep(/^\-+outmatrix$/,@ARGV) || grep(/^\-+o$/,@ARGV)){
     die "ERROR: outmatrix was specified for mashtree but should be an option for $0";
-  }
-  if(grep(/^\-+sketch\-size$/,@ARGV)){
-    die "ERROR: --sketch-size was specified for mashtree but should be an option for $0";
   }
   
   # Separate flagged options from reads in the mashtree options
@@ -114,6 +113,7 @@ sub main{
     print $mshListFh $_."\n";
   }
   close $mshListFh;
+  unlink($mergedMash) if(-e $mergedMash);
   system("mash paste -l $mergedMash $mshList >&2"); die "ERROR merging mash files" if $?; 
   system("mash info -d $mergedMash | gzip -c > $mergedJSON");
   die "ERROR with mash info | gzip -c" if $?;
@@ -139,7 +139,6 @@ sub main{
   for(my $i=0;$i<$$settings{reps};$i++){
     my $thrIndex = $i % $$settings{numcpus};
     push(@{$reps[$thrIndex]}, $i);
-    #$reps[$thrIndex].="$i ";
   }
 
   # Sample the mash sketches with replacement for rapid bootstrapping
@@ -153,7 +152,7 @@ sub main{
   for my $thr(@bsThread){
     my $fileArr = $thr->join;
     if(ref($fileArr) ne 'ARRAY'){
-      die Dumper [$fileArr,"ERROR: not an array!"];
+      die "ERROR: one or more threads did not return an array of jack knife tree files as expected.";
     }
     for my $file(@$fileArr){
       my $treein = Bio::TreeIO->new(-file=>$file);
@@ -189,29 +188,35 @@ sub main{
 
 sub subsampleMashSketchesWorker{
   my($mashInfoHash, $reps, $settings) = @_;
+  $reps //= [];
 
-  my $json = JSON->new;
-  $json->utf8;           # If we only expect characters 0..255. Makes it fast.
-  $json->allow_nonref;   # can convert a non-reference into its corresponding string
-  $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
-  $json->pretty;         # enables indent, space_before and space_after 
+  my $kmerlength = $$mashInfoHash{kmer}; # find the kmer length right away
 
   my @treeFile;
+  return \@treeFile if(@$reps <1);
+
   my $numReps = @$reps;
   my $numSketches = scalar(@{ $$mashInfoHash{sketches} });
-  logmsg "Initializing thread with $numReps replicates";
+  my $msg="Initializing thread with $numReps replicates: ";
+  for my $i(0..2){
+    my $repID = $$reps[$i] // "";
+    $msg.="$repID, ";
+  }
+  $msg=~s/[ ,]+$//; # right trim
+  if($numReps > 3){
+    $msg.="...";
+  }
+  logmsg $msg;
   for(my $repI=0;$repI<@$reps;$repI++){
     my $rep = $$reps[$repI];
 
     my $subsampleDir = "$$settings{tempdir}/rep$rep";
     mkdir $subsampleDir;
-    logmsg "rep$rep: $subsampleDir";
-
-    # Start off a distances file
-    my $distFile = "$subsampleDir/distances.tsv";
-    open(my $distFh, ">", $distFile) or die "ERROR writing to $distFile: $!";
+    logmsg "rep$rep: $subsampleDir (".($repI+1)." out of $numReps in this thread)";
 
     my @name;
+    # Start off a distances string for printing to file later
+    my $distStr="";
     for(my $sketchCounter=0; $sketchCounter<$numSketches; $sketchCounter++){
 
       # subsample the hashes of one genome at a time as compared
@@ -223,17 +228,22 @@ sub subsampleMashSketchesWorker{
       @subsampleHash = sort{$a<=>$b} @subsampleHash;
 
       my $nameI = $$mashInfoHash{sketches}[$sketchCounter]{name};
-      my $distStr = "#query $nameI\n"; # buffer string before printing to file
+      # Initialize the distances string with the query name.
+      # Use this string as a buffer for the distances file
+      # to help avoid too much disk IO.
+      $distStr .= "#query $nameI\n";
       push(@name, $nameI);
       for(my $j=0; $j<$numSketches; $j++){
         my $nameJ = $$mashInfoHash{sketches}[$j]{name};
-        my $distance = mashDist(\@subsampleHash, $$mashInfoHash{sketches}[$j]{hashes});
+        my $distance = mashDist(\@subsampleHash, $$mashInfoHash{sketches}[$j]{hashes}, $kmerlength);
         $distStr.="$nameJ\t$distance\n";
       }
-      print $distFh $distStr;
     }
+    my $distFile = "$subsampleDir/distances.tsv";
+    open(my $distFh, ">", $distFile) or die "ERROR writing to $distFile: $!";
+    print $distFh $distStr;
     close $distFh;
-
+    $distStr=""; # clear some memory
 
     # Add distances to database
     my $mashtreeDb = Mashtree::Db->new("$subsampleDir/distances.sqlite");

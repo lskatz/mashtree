@@ -300,10 +300,12 @@ sub mashSketch{
 
     push(@msh,"$outPrefix.msh");
 
+    # Save sketches into a local directory if requested
     if($$settings{'save-sketches'}){
       my $dir=$$settings{'save-sketches'};
       my $target = "$fastq.msh";
       if(defined($dir)){
+        mkdir($dir) if(!-e $dir);
         $target = "$dir/".basename($fastq).".msh";
       }
       #try to hard link because this is basically a read-only file,
@@ -476,10 +478,6 @@ sub usage{
                             this file and not to stdout. Log messages
                             will still go to stderr.
   --version                 Display the version and exit
-  --save-sketches      ''   If a directory is supplied, then sketches
-                            will be saved in it.
-                            If no directory is supplied, then sketches
-                            will be saved alongside source files.
 
   TREE OPTIONS
   --truncLength        250  How many characters to keep in a filename
@@ -494,6 +492,10 @@ sub usage{
                             to discard lower-abundance kmers.
   --kmerlength         21
   --sketch-size        10000
+  --save-sketches      ''   If a directory is supplied, then sketches
+                            will be saved in it.
+                            If no directory is supplied, then sketches
+                            will be saved alongside source files.
   "
 }
 

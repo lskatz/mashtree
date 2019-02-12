@@ -3,13 +3,16 @@
 use strict;
 use warnings;
 use Data::Dumper;
-use lib './lib';
-use File::Basename qw/dirname/;
+use FindBin qw/$RealBin/;
 
-use Test::More tests => 3;
+use lib "$RealBin/../lib";
+use File::Basename qw/dirname basename/;
+use Digest::MD5 qw/md5_hex/;
+
+use Test::More tests => 6;
 
 use_ok 'Mashtree';
-use Mashtree qw/treeDist/;
+use Mashtree qw/treeDist mashDist raw_mash_distance mashHashes/;
 
 $ENV{PATH}="./bin:$ENV{PATH}";
 
@@ -18,7 +21,7 @@ $correctMashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 
 # Test to see if the correct tree is made
 END{unlink "lambdadist.tsv";}
-my $mashtree=`mashtree --outmatrix lambdadist.tsv --numcpus 1 t/lambda/*.fastq.gz 2>/dev/null`;
+my $mashtree=`mashtree --outmatrix lambdadist.tsv --genomesize 40000 --save-sketches $RealBin/lambda/sketches --numcpus 1 $RealBin/lambda/*.fastq.gz 2>/dev/null`;
 chomp($mashtree);
 $mashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 my $dist=treeDist($mashtree,$correctMashtree);
@@ -67,11 +70,39 @@ subtest "Test matrix" => sub {
     chomp($distances);
     my($label,@dist)=split /\t/,$distances;
     for(my $i=0;$i<@header;$i++){
-      is $dist[$i], $matrix{$label}{$header[$i]}, "Distance between $label and $header[$i] (should be $dist[$i])";
+      is $dist[$i], $matrix{$label}{$header[$i]}, "Distance between $label and $header[$i]"
+        or note "Should have been $dist[$i]";
     }
   }
   close MATRIX;
 };
 
+# Did we get exactly the right sketches?
+my %sketches = (
+  "$RealBin/lambda/sketches/sample1.fastq.gz.msh" => "b737ed5e87f4851181c0f3027848ab4b",
+  "$RealBin/lambda/sketches/sample2.fastq.gz.msh" => "90e5a975176b4add3eb13891a1ee8368",
+  "$RealBin/lambda/sketches/sample3.fastq.gz.msh" => "52fbe9f503f240065def9872cfd8e308",
+  "$RealBin/lambda/sketches/sample4.fastq.gz.msh" => "53d545265d37632dbfcb0d2556e8aba6",
+);
+subtest "Saving sketches" => sub {
+  plan tests => 4;
+  while(my($file,$md5sum)=each(%sketches)){
+    open(my $fh, $file) or die "ERROR opening $file: $!";
+    my $content = join("", <$fh>);
+    close $fh;
+    is(md5_hex($content), $md5sum, "MD5 of ".basename($file))
+      or note "Should have been $sketches{$file}. Check on file size and/or `mash info` to follow up.";
+  }
+};
 
+# test Mash module functions
+# # 8460/10000
+my ($hashes1, $k1, $length1) = mashHashes("$RealBin/lambda/sketches/sample1.fastq.gz.msh");
+my ($hashes2, $k2, $length2) = mashHashes("$RealBin/lambda/sketches/sample2.fastq.gz.msh");
+my ($common, $total) = raw_mash_distance($hashes1, $hashes2);
+is($common/$total, 8460/10000, "Raw mash distance")
+  or note "Got: $common / $total but it should be 8460/10000";
+
+my $mashDist = mashDist("$RealBin/lambda/sketches/sample1.fastq.gz.msh","$RealBin/lambda/sketches/sample2.fastq.gz.msh");
+is(sprintf("%0.8f",$mashDist), 0.00414809, "Mash distance function");
 

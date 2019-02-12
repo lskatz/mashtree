@@ -6,6 +6,7 @@ use Exporter qw(import);
 use File::Basename qw/fileparse basename dirname/;
 use Data::Dumper;
 use List::Util qw/shuffle/;
+use Scalar::Util qw/looks_like_number/;
 
 use threads;
 use threads::shared;
@@ -15,7 +16,7 @@ use Bio::Matrix::IO;
 use Bio::TreeIO;
 
 our @EXPORT_OK = qw(
-           logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames treeDist
+           logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames treeDist mashDist mashHashes raw_mash_distance raw_mash_distance_unequal_sizes
            @fastqExt @fastaExt @bamExt @vcfExt @richseqExt @mshExt
            $MASHTREE_VERSION
          );
@@ -25,7 +26,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "0.37";
+our $VERSION = "0.40";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
@@ -199,7 +200,7 @@ sub createTreeFromPhylip{
   # bioperl if there was an error with which quicktree
   if($?){
     logmsg "DEPRECATION WARNING: CANNOT FIND QUICKTREE IN YOUR PATH. I will use BioPerl to make the tree this time, but it will be removed in the next version.";
-    logmsg "Creating tree with BioPerl";
+    #logmsg "Creating tree with BioPerl";
     my $dfactory = Bio::Tree::DistanceFactory->new(-method=>"NJ");
     my $matrix   = Bio::Matrix::IO->new(-format=>"phylip", -file=>$phylip)->next_matrix;
     $treeObj = $dfactory->make_tree($matrix);
@@ -210,12 +211,14 @@ sub createTreeFromPhylip{
   }
   # quicktree
   else {
-    logmsg "Creating tree with QuickTree";
+    #logmsg "Creating tree with QuickTree";
     system("quicktree -in m $phylip > $outdir/tree.dnd.tmp");
     die "ERROR with quicktree" if $?;
     $treeObj=Bio::TreeIO->new(-file=>"$outdir/tree.dnd.tmp")->next_tree;
-    my $outtree=Bio::TreeIO->new(-file=>">$outdir/tree.dnd", -format=>"newick");
-    $outtree->write_tree($treeObj);
+    open(my $treeFh, ">", "$outdir/tree.dnd") or die "ERROR: could not write to $outdir/tree.dnd: $!";
+    print $treeFh $treeObj->as_text("newick")."\n";
+    #my $outtree=Bio::TreeIO->new(-file=>">$outdir/tree.dnd", -format=>"newick");
+    #$outtree->write_tree($treeObj);
 
     unlink("$outdir/tree.dnd.tmp");
   }
@@ -307,6 +310,162 @@ sub treeDist{
   $euclideanDistance=sqrt($euclideanDistance);
   return $euclideanDistance;
 }
+
+# Find the distance between two mash sketch files
+# Alternatively: two hash lists.
+sub mashDist{
+  my($file1, $file2, $k, $settings)=@_;
+
+  my($hashes1, $hashes2, $kmer1, $kmer2);
+  if(ref($file1) eq 'ARRAY'){
+    $hashes1 = $file1;
+    $kmer1 = -1;
+  } else {
+    ($hashes1, $kmer1) = mashHashes($file1);
+  }
+  if(ref($file2) eq 'ARRAY'){
+    $hashes2 = $file2;
+    $kmer2 = -1;
+  } else {
+    ($hashes2, $kmer2) = mashHashes($file2);
+  }
+
+  if($kmer1 ne $kmer2){
+    die "ERROR: kmer lengths do not match($kmer1 vs $kmer2)";
+  }
+
+  # Set the default kmer length and perform sanity check
+  $k ||= $kmer1;
+  if(!looks_like_number($k)){
+    die "ERROR: k was not set to an integer";
+  }
+  if($k < 1){
+    die "ERROR: k was undefined or set to less than 1";
+  }
+
+  my($common, $total) = (0,0);
+  if(scalar(@$hashes1) != scalar(@$hashes2)){
+    ($common, $total) = raw_mash_distance_unequal_sizes($hashes1, $hashes2);
+  } else {
+    ($common, $total) = raw_mash_distance($hashes1, $hashes2);
+  }
+  my $jaccard = $common/$total;
+  my $mash_distance = -1/$k * log(2*$jaccard / (1+$jaccard));
+  #logmsg "========== $mash_distance = -1/$k * log(2*$jaccard / (1+$jaccard)) ==============";
+
+  return $mash_distance;
+}
+
+sub mashHashes{
+  my($sketch)=@_;
+  my @hash;
+  my $length = 0;
+  my $kmer   = 0;
+
+  if(!-e $sketch){
+    die "ERROR: file not found: $sketch";
+  }
+
+  my $fh;
+  if($sketch =~ /\.msh$/){
+    open($fh, "mash info -d $sketch | ") or die "ERROR: could not run mash info -d on $sketch: $!";
+  } elsif($sketch =~ /\.json$/){
+    open($fh, $sketch) or die "ERROR: could not read $sketch: $!";
+  }
+  while(<$fh>){
+    if(/kmer\D+(\d+)/){
+      $kmer = $1;
+    }
+    elsif(/length\D+(\d+)/){
+      $length = $1;
+    }
+    elsif(/hashes/){
+      while(<$fh>){
+        last if(/\]/);
+        next if(!/\d/);
+        s/\D+//g;
+        s/^\s+|\s+$//g;
+        push(@hash, $_);
+      }
+    }
+  }
+  if(!@hash){
+    die "ERROR: no hashes found in $sketch";
+  }
+  return (\@hash, $kmer, $length);
+}
+
+# Compare unequal sized hashes. Treat the first
+# set of hashes as the reference (denominator)
+# set.
+sub raw_mash_distance_unequal_sizes{
+  my($hashes1, $hashes2) = @_;
+
+  my (%sketch1,%sketch2);
+  @sketch1{@$hashes1} = (1) x scalar(@$hashes1);
+  @sketch2{@$hashes2} = (1) x scalar(@$hashes2);
+
+  my %union;
+  for my $h(@$hashes1){
+    if($sketch2{$h}){
+      $union{$h}++;
+    }
+  }
+
+  my $common = scalar(keys(%union));
+  my $total  = scalar(@$hashes1);
+
+  return($common,$total);
+}
+
+# https://github.com/onecodex/finch-rs/blob/master/src/distance.rs#L34
+sub raw_mash_distance{
+  my($hashes1, $hashes2) = @_;
+
+  my @sketch1 = sort {$a <=> $b} @$hashes1;
+  my @sketch2 = sort {$a <=> $b} @$hashes2;
+
+  my $i      = 0;
+  my $j      = 0;
+  my $common = 0;
+  my $total  = 0;
+
+  my $sketch_size = @sketch1;
+  while($total < $sketch_size && $i < @sketch1 && $j < @sketch2){
+    my $ltgt = ($sketch1[$i] <=> $sketch2[$j]); # -1 if sketch1 is less than, +1 if sketch1 is greater than
+
+    if($ltgt == -1){
+      $i += 1;
+    } elsif($ltgt == 1){
+      $j += 1;
+    } elsif($ltgt==0) {
+      $i += 1;
+      $j += 1;
+      $common += 1;
+    } else {
+      die "Internal error";
+    }
+
+    $total += 1;
+  }
+
+  if($total < $sketch_size){
+    if($i < @sketch1){
+      $total += @sketch1 - 1;
+    }
+
+    if($j < @sketch2){
+      $total += @sketch2 - 1;
+    }
+
+    if($total > $sketch_size){
+      $total = $sketch_size;
+    }
+  }
+
+  return ($common, $total);
+}
+
 
 1;
 
