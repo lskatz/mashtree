@@ -354,13 +354,22 @@ sub mashDistance{
   # Initialize the threads
   my @thr;
   for(0..$$settings{numthreads}-1){
-    $thr[$_]=threads->new(\&mashDist,$outdir,$threadArr[$_],$mshListFilename,$mashtreeDbFilename,$settings);
+    $thr[$_]=threads->new(\&mashDist,$outdir,$threadArr[$_],$mshListFilename,$settings);
   }
 
-  for(@thr){
-    logmsg "Waiting to join thread TID".$_->tid;
-    my $distfiles=$_->join;
-    logmsg "Joined TID".$_->tid;
+  my $numThreads=@thr;
+  for(my $t=0; $t<@thr; $t++){
+    my $T=$t+1;
+    my $formattedThreadName = "$T/$numThreads, TID".$thr[$t]->tid;
+    logmsg "Waiting to join thread ($formattedThreadName)";
+    my $distStr = $thr[$t]->join; # returns ref to scalar b/c the str could be very large
+    my $distFile = "$$settings{tempdir}/distances.singleThread.tsv";
+    open(my $distFh, ">", $distFile) or die "ERROR: could not write to $distFile: $!";
+    print $distFh $$distStr;
+    close $distFh;
+
+    logmsg "Databasing distances ($formattedThreadName)";
+    $mashtreeDb->addDistances($distFile);
   }
 
   my $phylip = "$outdir/distances.phylip";
@@ -382,34 +391,18 @@ sub mashDistance{
 
 # Individual mash distance
 sub mashDist{
-  my($outdir,$mshArr,$mshList,$mashtreeDbFilename,$settings)=@_;
-
-  # One distance file for all queries in this thread
-  my($distFileFh,$distFile)=tempfile("mashdistXXXXXX", SUFFIX=>".tsv", DIR=>$outdir);
+  my($outdir,$mshArr,$mshList,$settings)=@_;
 
   my $numQueries=0;
-  my $mashtreeDb=Mashtree::Db->new($mashtreeDbFilename);
+  my $distStr=""; # buffer all distances into ram and print to file later
   for my $msh(@$mshArr){
     #my $outfile="$outdir/".basename($msh).".tsv";
     logmsg "Distances for $msh";
-    system("mash dist -t $msh -l $mshList >> $distFile");
+    $distStr.=`mash dist -t $msh -l $mshList`;
     die "ERROR with 'mash dist -t $msh -l $mshList'" if $?;
     $numQueries++;
   }
-
-  # If there is anything to add to the database, lock
-  # the database.  Only lock it once per thread, optimally.
-  if($numQueries > 0){
-    lock($dbhLock);
-    $mashtreeDb->addDistances($distFile);
-  }
-
-  # I think that the thread disconnects the db when
-  # this sub ends but I wanted to do it directly and
-  # in a readable fashion.
-  $mashtreeDb->disconnect();
-  close($distFileFh);
-  unlink($distFile);
+  return \$distStr; # return the reference because the str could be quite large
 }
 
 sub determineMinimumDepth{
