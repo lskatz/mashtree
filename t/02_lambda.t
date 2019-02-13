@@ -20,8 +20,11 @@ my $correctMashtree="(sample3:0.00195,sample4:0.00205,(sample1:0.00205,sample2:0
 $correctMashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 
 # Test to see if the correct tree is made
-END{unlink "lambdadist.tsv";}
-my $mashtree=`mashtree --outmatrix lambdadist.tsv --genomesize 40000 --save-sketches $RealBin/lambda/sketches --numcpus 1 $RealBin/lambda/*.fastq.gz 2>/dev/null`;
+END{unlink "lambdadist.tsv"; unlink "$0.log";}
+my $mashtree=`mashtree --outmatrix lambdadist.tsv --genomesize 40000 --save-sketches $RealBin/lambda/sketches --numcpus 1 $RealBin/lambda/*.fastq.gz 2>$0.log`;
+if($?){
+  BAIL_OUT("ERROR running mashtree: $!\n ".`cat $0.log`);
+}
 chomp($mashtree);
 $mashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 my $dist=treeDist($mashtree,$correctMashtree);
