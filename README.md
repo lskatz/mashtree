@@ -25,9 +25,17 @@ more likely read errors.
 
     mashtree --mindepth 0 --numcpus 12 *.fastq.gz [*.fasta] > mashtree.dnd
 
-### Advanced
+### Adding confidence values
 
-    mashtree_wrapper.pl --reps 100 -- --numcpus 12 *.fastq.gz > mashtree.dnd
+Mashtree can add confidence values using jack knifing. For each
+jack knife tree, 50% of hashes are used. Confidence values are calculated from
+the jack knife trees using BioPerl. When using this method, you can pass
+flags to `mashtree` using the double-dash like in the example below.
+
+Added in version 0.40.
+
+    mashtree_jackknife.pl --reps 100 --numcpus 12 *.fastq.gz -- --min-depth 0 > mashtree.dnd
+    mashtree_jackknife.pl --help # additional usage help
 
 
 ## Usage

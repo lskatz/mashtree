@@ -2,7 +2,8 @@ MANIFEST
 LICENSE
 CHANGES
 bin/mashtree
-bin/mashtree_wrapper.pl
+bin/mashtree_wrapper_deprecated.pl
+bin/mashtree_jackknife.pl
 bin/min_abundance_finder.pl
 lib/Mashtree.pm
 lib/Mashtree/Db.pm
@@ -14,6 +15,8 @@ t/00_env.t
 t/01_filetypes.t
 t/02_lambda.t
 t/03_subsample.t
+t/04_fileoffiles.t
+t/06_jackknifingHashes.t
 t/10_sqlite.t
 t/filetypes/CFSAN000211.gbk.gz
 t/filetypes/CFSAN000189.gbk.gz
