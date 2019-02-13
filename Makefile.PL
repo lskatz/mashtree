@@ -20,7 +20,8 @@ WriteMakefile1(
   AUTHOR => q{Lee S. Katz <gzu2@cdc.gov>},
   EXE_FILES    => [
     "bin/mashtree",
-    "bin/mashtree_wrapper.pl",
+    "bin/mashtree_wrapper_deprecated.pl",
+    "bin/mashtree_jackknife.pl",
     "bin/min_abundance_finder.pl",
   ],
   PREREQ_PM    => {
@@ -41,6 +42,8 @@ WriteMakefile1(
     'Bio::Tree::Statistics'=> 0,
     #'Bio::Kmer'      => 0.19,
     'Graph::Dijkstra'=> 0.70,
+    'JSON'           => 2.90,
+    'JSON::XS'       => 4.0,
   },
   BUILD_REQUIRES => {
     'Test::More'     => 0.47,

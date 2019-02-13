@@ -14,7 +14,7 @@ use File::Slurp qw/read_file write_file/;
 use List::Util qw/shuffle/;
 use List::MoreUtils qw/part/;
 use POSIX qw/floor/;
-use JSON;
+use JSON (-support_by_pp); # if JSON::XS is installed, it will be automatically used
 
 #use Fcntl qw/:flock LOCK_EX LOCK_UN/;
 
@@ -32,6 +32,7 @@ use Bio::Tree::DistanceFactory;
 use Bio::Tree::Statistics;
 
 my $writeStick :shared;
+my $readStick  :shared; # limit disk IO by reading some files one at a time
 
 local $0=basename $0;
 
@@ -55,6 +56,11 @@ sub main{
   }
   if($$settings{reps} < 100){
     logmsg "WARNING: You have very few reps planned on this mashtree run. Recommended reps are at least 100.";
+  }
+  # Give a warning if JSON is going to be slow later
+  my $jsonTmp = JSON->new();
+  if(! $jsonTmp->is_xs){
+    logmsg "WARNING: the currently installed JSON module will make this script very slow when jack knifing. To avoid this error, install the JSON::XS module like so: `cpanm ~l ~ JSON::XS`.";
   }
   
   ## Catch some options that are not allowed to be passed
@@ -113,25 +119,15 @@ sub main{
     print $mshListFh $_."\n";
   }
   close $mshListFh;
-  unlink($mergedMash) if(-e $mergedMash);
+  unlink($mergedMash) if(-e $mergedMash); # mash complains about overwriting an existing file
   system("mash paste -l $mergedMash $mshList >&2"); die "ERROR merging mash files" if $?; 
-  system("mash info -d $mergedMash | gzip -c > $mergedJSON");
-  die "ERROR with mash info | gzip -c" if $?;
+  # max compression on the json file so that it can be a
+  # smaller footprint and so that it can be read faster
+  # in each thread.
+  system("mash info -d $mergedMash | gzip -c9 > $mergedJSON");
+  die "ERROR with mash info | gzip -c9" if $?;
   unlink($_) for(@msh); # remove redundant files to the merged msh
   
-  # Make JSON files that represent sampling with replacement
-  # of mash hashes
-  logmsg "Reading huge JSON file describing all mash distances, $mergedJSON";
-  my $json = JSON->new;
-  $json->utf8;           # If we only expect characters 0..255. Makes it fast.
-  $json->allow_nonref;   # can convert a non-reference into its corresponding string
-  $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
-  $json->pretty;         # enables indent, space_before and space_after 
-  my $mashInfoStr = `gzip -cd $mergedJSON`; 
-  die "ERROR running gzip -cd $mergedJSON: $!" if $?;
-  my $mashInfoHash = $json->decode($mashInfoStr);
-  $mashInfoStr=""; # clear some ram
-
   # Round-robin sample the replicate number, so that it's
   # well-balanced.
   my @repNumber = (1..$$settings{reps});
@@ -145,7 +141,7 @@ sub main{
   my @bsThread;
   for my $i(0..$$settings{numcpus}-1){
     my %settingsCopy = %$settings;
-    $bsThread[$i] = threads->new(\&subsampleMashSketchesWorker, $mashInfoHash, $reps[$i], \%settingsCopy);
+    $bsThread[$i] = threads->new(\&subsampleMashSketchesWorker, $mergedJSON, $reps[$i], \%settingsCopy);
   }
 
   my @bsTree;
@@ -187,13 +183,29 @@ sub main{
 }
 
 sub subsampleMashSketchesWorker{
-  my($mashInfoHash, $reps, $settings) = @_;
+  my($mergedJSON, $reps, $settings) = @_;
   $reps //= [];
-
-  my $kmerlength = $$mashInfoHash{kmer}; # find the kmer length right away
 
   my @treeFile;
   return \@treeFile if(@$reps <1);
+
+  # Initialize our JSON reader
+  my $json = JSON->new;
+  $json->utf8;           # If we only expect characters 0..255. Makes it fast.
+  $json->allow_nonref;   # can convert a non-reference into its corresponding string
+  $json->allow_blessed;  # encode method will not barf when it encounters a blessed reference 
+  $json->pretty;         # enables indent, space_before and space_after 
+  # Only let one thread at a time read the large JSON file
+  my $mashInfoStr=""; # must be declared outside of the block because we are parsing it after the block
+  {
+    lock($readStick);
+    logmsg "Reading huge JSON file describing all mash distances, $mergedJSON";
+    $mashInfoStr = `gzip -cd $mergedJSON`; 
+    die "ERROR running gzip -cd $mergedJSON: $!" if $?;
+  }
+  my $mashInfoHash = $json->decode($mashInfoStr);
+  $mashInfoStr=""; # clear some ram
+  my $kmerlength = $$mashInfoHash{kmer}; # find the kmer length right away
 
   my $numReps = @$reps;
   my $numSketches = scalar(@{ $$mashInfoHash{sketches} });
