@@ -14,6 +14,7 @@ use Test::More tests => 5;
 
 use_ok 'Mashtree';
 use Mashtree;
+use Mashtree::Db;
 
 $ENV{PATH}="./bin:$ENV{PATH}";
 
@@ -21,10 +22,10 @@ my $correctMashtree="((sample2:0.0020443525,sample1:0.0021037373)66:0.0000540274
 $correctMashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 
 # Test to see if the correct tree is made
-END{unlink "lambdadist.tsv"; system("rm -rf $RealBin/lambda/jackknife.tmp");}
-my $mashtree=`mashtree_jackknife.pl --tempdir $RealBin/lambda/jackknife.tmp --reps 100 --numcpus 2 $RealBin/lambda/*.fastq.gz 2>/dev/null`;
+END{unlink "lambdadist.tsv"; system("rm -rf $RealBin/lambda/jackknife.tmp jackknife.log");}
+my $mashtree=`mashtree_jackknife.pl --tempdir $RealBin/lambda/jackknife.tmp --reps 100 --numcpus 2 $RealBin/lambda/*.fastq.gz 2>jackknife.log`;
 if($?){
-  BAIL_OUT("Mashtree exited with error");
+  BAIL_OUT("Mashtree exited with error:\n".`cat jackknife.log`);
 }
 my $passed = ok(defined($mashtree),"Mashtree_jackknife.pl ran and produced a string");
 $mashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
@@ -53,42 +54,20 @@ subtest "Parts of the tree file intact" => sub{
 };
   
 # Test to validate distances on the first rep
-my $validDistances = 1;
-my $distFile = "$RealBin/lambda/jackknife.tmp/rep1/distances.tsv";
-my $numDistErrors = 0;
-open(my $distFh, "<", "$distFile") or die "ERROR reading $distFile: $!";
-my $currentQuery="";
-while(my $distance = <$distFh>){
-  if($distance =~ /^\s*#\s*query\s*(.+)/i){
-    $currentQuery=$1;
-    next;
+subtest "Database of distances for rep1" => sub{
+  plan tests=>20;
+  my $db = Mashtree::Db->new("$RealBin/lambda/jackknife.tmp/rep1/distances.sqlite");
+  my @dist = split(/\n/, $db->toString('','phylip'));
+  chomp(@dist);
+  shift(@dist);
+  for(my $i=0;$i<@dist;$i++){
+    my ($name, @dist) = split(/\s+/, $dist[$i]);
+    for(my $j=0; $j<@dist; $j++){
+      ok(looks_like_number($dist[$j]), "Distance is a number")
+        or note "  Found $dist[$j]";
+      if($j==$i){
+        ok($dist[$j] == 0,"Distance against self is 0");
+      }
+    }
   }
-
-  my($hit, $dist) = split(/\t/, $distance);
-
-  if(!looks_like_number($dist)){
-    diag "Found an entry that does not seem to have a number: $distance";
-    $validDistances = 0;
-    $numDistErrors++;
-  }
-
-  if($hit eq $currentQuery && $dist != 0){
-    diag "Hit vs self on $hit is not 0 but is $dist";
-    $validDistances = 0;
-    $numDistErrors++;
-  }
-
-  if($dist < 0){
-    diag "Found a negative distance on this line: $distance";
-    $validDistances = 0;
-    $numDistErrors++;
-  }
-
-  if($numDistErrors >= 5){
-    diag "Found at least 5 distance errors. Bailing on this test.";
-    last;
-  }
-}
-close $distFh;
-is($validDistances, 1, "Valid distances");
-
+};

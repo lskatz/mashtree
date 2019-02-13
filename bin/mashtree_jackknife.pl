@@ -14,7 +14,10 @@ use File::Slurp qw/read_file write_file/;
 use List::Util qw/shuffle/;
 use List::MoreUtils qw/part/;
 use POSIX qw/floor/;
-use JSON (); # if JSON::XS is installed, it will be automatically used
+# if JSON::XS is installed, it will be automatically used.
+# Specify () so that no functions are exported. We will use OO.
+use JSON (); 
+use IO::Handle; # allows me to autoflush file handles
 
 #use Fcntl qw/:flock LOCK_EX LOCK_UN/;
 
@@ -224,12 +227,17 @@ sub subsampleMashSketchesWorker{
 
     my $subsampleDir = "$$settings{tempdir}/rep$rep";
     mkdir $subsampleDir;
+    my $log = "$subsampleDir/jackknife.log";
+    open(my $logFh, ">", $log) or die "ERROR: cannot write to log $log: $!";
+    $logFh->autoflush();
     logmsg "rep$rep: $subsampleDir (".($repI+1)." out of $numReps in this thread)";
 
     my @name;
     # Start off a distances string for printing to file later
-    my $distStr="";
+    my %dist = ();
     for(my $sketchCounter=0; $sketchCounter<$numSketches; $sketchCounter++){
+      my $nameI = basename($$mashInfoHash{sketches}[$sketchCounter]{name},(@fastqExt,@fastaExt));
+      print $logFh "Subsampling sketches from entry $sketchCounter, $nameI\n";
 
       # subsample the hashes of one genome at a time as compared
       # to the other genomes, to get a jack knife distance.
@@ -239,35 +247,37 @@ sub subsampleMashSketchesWorker{
       @subsampleHash = (shuffle(@subsampleHash))[0..$keepHashes-1];
       @subsampleHash = sort{$a<=>$b} @subsampleHash;
 
-      my $nameI = $$mashInfoHash{sketches}[$sketchCounter]{name};
+      print $logFh "Distances between $nameI and other genomes";
       # Initialize the distances string with the query name.
       # Use this string as a buffer for the distances file
       # to help avoid too much disk IO.
-      $distStr .= "#query $nameI\n";
       push(@name, $nameI);
       for(my $j=0; $j<$numSketches; $j++){
-        my $nameJ = $$mashInfoHash{sketches}[$j]{name};
+        my $nameJ = basename($$mashInfoHash{sketches}[$j]{name},(@fastqExt,@fastaExt));
         my $distance = mashDist(\@subsampleHash, $$mashInfoHash{sketches}[$j]{hashes}, $kmerlength);
-        $distStr.="$nameJ\t$distance\n";
+        $dist{$nameI}{$nameJ} = $distance;
+        print $logFh ".";
       }
+      print $logFh "\n";
     }
-    my $distFile = "$subsampleDir/distances.tsv";
-    open(my $distFh, ">", $distFile) or die "ERROR writing to $distFile: $!";
-    print $distFh $distStr;
-    close $distFh;
-    $distStr=""; # clear some memory
 
     # Add distances to database
+    print $logFh "Creating database, $subsampleDir/distances.sqlite\n";
     my $mashtreeDb = Mashtree::Db->new("$subsampleDir/distances.sqlite");
-    $mashtreeDb->addDistances($distFile);
+    $mashtreeDb->addDistancesFromHash(\%dist);
     # Convert to Phylip
     my $phylipFile = "$subsampleDir/distances.phylip";
+    print $logFh "Creating phylip file, $phylipFile\n";
     open(my $phylipFh, ">", $phylipFile) or die "ERROR: could not write to $phylipFile: $!";
     print $phylipFh $mashtreeDb->toString(\@name, "phylip");
     close $phylipFh;
 
+    print $logFh "Creating tree file, $subsampleDir/tree.dnd\n";
     my $treeObj = createTreeFromPhylip($phylipFile, $subsampleDir, $settings);
     push(@treeFile, "$subsampleDir/tree.dnd");
+
+    print $logFh "DONE!\n";
+    close $logFh;
   }
 
   return \@treeFile;
