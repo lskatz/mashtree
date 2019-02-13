@@ -14,7 +14,7 @@ use File::Slurp qw/read_file write_file/;
 use List::Util qw/shuffle/;
 use List::MoreUtils qw/part/;
 use POSIX qw/floor/;
-use JSON (-support_by_pp); # if JSON::XS is installed, it will be automatically used
+use JSON (); # if JSON::XS is installed, it will be automatically used
 
 #use Fcntl qw/:flock LOCK_EX LOCK_UN/;
 
