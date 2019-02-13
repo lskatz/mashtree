@@ -90,6 +90,37 @@ sub disconnect{
   $self->{dbh}->disconnect();
 }
 
+sub addDistancesFromHash{
+  my($self,$distHash)=@_;
+
+  my $dbh=$self->{dbh};
+  my $numInserted=0;   # how many are going to be inserted?
+
+  my $insert = $dbh->prepare( "INSERT INTO DISTANCE VALUES ( ?, ?, ? )" );
+  my $autocommit = $dbh->{AutoCommit};
+  $dbh->{AutoCommit} = 0; # begin a new transaction
+  my $query="";
+  #my $genome = map {s/^\s+|\s+$//g; _truncateFilename($_);} keys(%$distHash);
+  my @genome = keys(%$distHash);
+  my $numGenomes = @genome;
+  for(my $i=0;$i<$numGenomes;$i++){
+    my $genomeI = $genome[$i];
+    for(my $j=$i;$j<$numGenomes;$j++){
+      next if(defined($self->findDistance($genomeI,$genome[$j])));
+
+      $insert->execute($genomeI, $genome[$j], $$distHash{$genomeI}{$genome[$j]});
+      if ( $dbh->err() ) {
+        die "Error: could not insert distance between $genomeI and $genome[$j] into the database: ".$dbh->err."\n";
+      }
+      $numInserted++;
+    }
+  }
+  $dbh->commit;
+  $dbh->{AutoCommit} = $autocommit;
+
+  return $numInserted;
+}
+
 sub addDistances{
   my($self,$distancesFile)=@_;
 
