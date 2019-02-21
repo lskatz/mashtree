@@ -101,7 +101,7 @@ sub addDistancesFromHash{
   $dbh->{AutoCommit} = 0; # begin a new transaction
   my $query="";
   #my $genome = map {s/^\s+|\s+$//g; _truncateFilename($_);} keys(%$distHash);
-  my @genome = keys(%$distHash);
+  my @genome = map{s/^\s+|\s+$//g; _truncateFilename($_) } keys(%$distHash);
   my $numGenomes = @genome;
   for(my $i=0;$i<$numGenomes;$i++){
     my $genomeI = $genome[$i];

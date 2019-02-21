@@ -362,14 +362,10 @@ sub mashDistance{
     my $T=$t+1;
     my $formattedThreadName = "$T/$numThreads, TID".$thr[$t]->tid;
     logmsg "Waiting to join thread ($formattedThreadName)";
-    my $distStr = $thr[$t]->join; # returns ref to scalar b/c the str could be very large
-    my $distFile = "$$settings{tempdir}/distances.singleThread.tsv";
-    open(my $distFh, ">", $distFile) or die "ERROR: could not write to $distFile: $!";
-    print $distFh $$distStr;
-    close $distFh;
+    my $distHash = $thr[$t]->join; # returns ref to scalar b/c the str could be very large
 
     logmsg "Databasing distances ($formattedThreadName)";
-    $mashtreeDb->addDistances($distFile);
+    $mashtreeDb->addDistancesFromHash($distHash);
   }
 
   my $phylip = "$outdir/distances.phylip";
@@ -394,15 +390,31 @@ sub mashDist{
   my($outdir,$mshArr,$mshList,$settings)=@_;
 
   my $numQueries=0;
-  my $distStr=""; # buffer all distances into ram and print to file later
+  my %dist;
   for my $msh(@$mshArr){
     #my $outfile="$outdir/".basename($msh).".tsv";
     logmsg "Distances for $msh";
-    $distStr.=`mash dist -t $msh -l $mshList`;
+    my @distRes =`mash dist -t $msh -l $mshList`;
     die "ERROR with 'mash dist -t $msh -l $mshList'" if $?;
+    chomp(@distRes);
+
+    my $query="";
+    my $queryLine = shift(@distRes);
+    if($queryLine=~/#\s*query\s+(.+)/){
+      $query = _truncateFilename($1);
+    } else {
+      die "ERROR parsing for the query in $queryLine";
+    }
+    for(@distRes){
+      my($hit, $dist)=split /\t/;
+      $hit = _truncateFilename($hit);
+      $dist{$query}{$hit} = $dist;
+    }
+
     $numQueries++;
   }
-  return \$distStr; # return the reference because the str could be quite large
+  return \%dist;
+  #return \$distStr; # return the reference because the str could be quite large
 }
 
 sub determineMinimumDepth{
