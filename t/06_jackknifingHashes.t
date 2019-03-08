@@ -6,6 +6,7 @@ use Data::Dumper;
 use FindBin qw/$RealBin/;
 use lib "$RealBin/../lib";
 use File::Basename qw/dirname/;
+use File::Path qw/rmtree/;
 use Bio::TreeIO;
 use IO::String;
 use Scalar::Util qw/looks_like_number/;
@@ -21,11 +22,17 @@ $ENV{PATH}="./bin:$ENV{PATH}";
 my $correctMashtree="((sample2:0.0020443525,sample1:0.0021037373)66:0.0000540274,sample3:0.0019622177,sample4:0.0020673526)83;";
 $correctMashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 
+# Cleanup
+END{
+  rmtree("$RealBin/lambda/jackknife.tmp");
+  unlink("$RealBin/lambda/jackknife.log");
+}
 # Test to see if the correct tree is made
-END{unlink "lambdadist.tsv"; system("rm -rf $RealBin/lambda/jackknife.tmp jackknife.log");}
-my $mashtree=`mashtree_jackknife.pl --tempdir $RealBin/lambda/jackknife.tmp --reps 100 --numcpus 2 $RealBin/lambda/*.fastq.gz 2>jackknife.log`;
+my $mashtree=`mashtree_jackknife.pl --tempdir $RealBin/lambda/jackknife.tmp --reps 100 --numcpus 2 $RealBin/lambda/*.fastq.gz 2>$RealBin/lambda/jackknife.log`;
 if($?){
-  BAIL_OUT("Mashtree exited with error:\n====\n".`cat jackknife.log`."\n====\n");
+  my $log = `cat $RealBin/lambda/jackknife.log`;
+  diag $log;
+  BAIL_OUT("mashtree_jackknife.pl exited with an error code $?");
 }
 my $passed = ok(defined($mashtree),"Mashtree_jackknife.pl ran and produced a string");
 $mashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
@@ -34,7 +41,8 @@ my $fh = IO::String->new($mashtree);
 my $tree = Bio::TreeIO->new(-fh=>$fh, -format=>"newick")->next_tree;
 $passed = is(ref($tree),"Bio::Tree::Tree","Produced a BioPerl tree object");
 if(!$passed){
-  BAIL_OUT("Tree was not produced out of this string:\n$mashtree");
+  diag "Tree string produced was $mashtree";
+  BAIL_OUT("Tree object was not produced out of the tree string");
 }
 
 subtest "Parts of the tree file intact" => sub{
