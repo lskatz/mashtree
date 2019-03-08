@@ -27,7 +27,6 @@ WriteMakefile1(
   PREREQ_PM    => {
     # Core modules
     'File::Basename' => 0,
-    'File::Slurp'    => 0,
     'Data::Dumper'   => 0,
     'List::Util'     => 0,
     'Exporter'       => 0,

@@ -10,7 +10,6 @@ use Getopt::Long;
 use File::Temp qw/tempdir tempfile/;
 use File::Basename qw/basename dirname fileparse/;
 use File::Copy qw/cp mv/;
-use File::Slurp qw/read_file write_file/;
 use List::Util qw/shuffle/;
 use List::MoreUtils qw/part/;
 use POSIX qw/floor/;
