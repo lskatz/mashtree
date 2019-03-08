@@ -25,7 +25,7 @@ $correctMashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
 END{unlink "lambdadist.tsv"; system("rm -rf $RealBin/lambda/jackknife.tmp jackknife.log");}
 my $mashtree=`mashtree_jackknife.pl --tempdir $RealBin/lambda/jackknife.tmp --reps 100 --numcpus 2 $RealBin/lambda/*.fastq.gz 2>jackknife.log`;
 if($?){
-  BAIL_OUT("Mashtree exited with error:\n".`cat jackknife.log`);
+  BAIL_OUT("Mashtree exited with error:\n====\n".`cat jackknife.log`."\n====\n");
 }
 my $passed = ok(defined($mashtree),"Mashtree_jackknife.pl ran and produced a string");
 $mashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression
