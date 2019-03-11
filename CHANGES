@@ -1,0 +1,11 @@
+v0.41
+* Fixed some unit test bugs from v0.40. Addresses issue #37 on GitHub.
+
+v0.40
+* jack knifing enabled with hashes
+
+v0.37 
+* mashtree reps more stablized; reps unit test
+
+v0.36
+* Fixed a bug with multithreaded accurate mode (--min-depth 0) and bumped the version up so that cpan could catch it.

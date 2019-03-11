@@ -41,7 +41,7 @@ WriteMakefile1(
     'Bio::Tree::DistanceFactory'=> 0,
     'Bio::Tree::Statistics'=> 0,
     #'Bio::Kmer'      => 0.19,
-    'Graph::Dijkstra'=> '0.60',
+    'Graph::Dijkstra'=> 0,
     'JSON'           => '2.90',
     'JSON::XS'       => '4.0',
   },
