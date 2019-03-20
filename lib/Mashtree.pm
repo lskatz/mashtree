@@ -26,7 +26,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "0.41";
+our $VERSION = "0.50";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
@@ -88,18 +88,16 @@ sub openFastq{
 }
 
 # Removes fastq extension, removes directory name,
-# truncates to a length, and adds right-padding.
 sub _truncateFilename{
   my($file,$settings)=@_;
-  $$settings{truncLength}||=255;
-  # strip off msh and get the basename
-  my $name=basename($file,'.msh');
-  # One more extension
-  $name=basename($name,@fastqExt,@richseqExt,@fastaExt);
-  # Truncate
-  #$name=substr($name,0,$$settings{truncLength}); 
-  # Add in padding
-  #$name.=" " x ($$settings{truncLength}-length($name)); 
+  # strip off msh and any other known extentions
+  my $name=$file;
+  my $oldName="";
+  # Strip until we get convergence
+  while($name ne $oldName){
+    $oldName = $name;
+    $name = basename($name,@mshExt,@fastqExt,@richseqExt,@fastaExt);
+  }
   return $name;
 }
 
