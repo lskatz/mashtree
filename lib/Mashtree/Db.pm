@@ -58,7 +58,7 @@ sub selectDb{
 
   my $dbh=$self->{dbh};
   my $sth = $dbh->prepare(qq(
-    CREATE TABLE DISTANCE(
+    CREATE TABLE IF NOT EXISTS DISTANCE(
       GENOME1     CHAR(255)    NOT NULL,
       GENOME2     CHAR(255)    NOT NULL,
       DISTANCE    INT          NOT NULL,
@@ -97,35 +97,26 @@ sub addDistancesFromHash{
   my $numInserted=0;   # how many are going to be inserted?
 
   my $insert = $dbh->prepare( "INSERT INTO DISTANCE VALUES ( ?, ?, ? )" );
-  my $autocommit = $dbh->{AutoCommit};
-  $dbh->{AutoCommit} = 0; # begin a new transaction
+  #my $autocommit = $dbh->{AutoCommit};
+  #$dbh->{AutoCommit} = 0; # begin a new transaction
   my $query="";
-  #my $genome = map {s/^\s+|\s+$//g; _truncateFilename($_);} keys(%$distHash);
-  #my @genome = map{ _truncateFilename($_) } keys(%$distHash);
-  my @genome = keys(%$distHash);
-  my $numGenomes = @genome;
-  for(my $i=0;$i<$numGenomes;$i++){
-    my $genomeI = $genome[$i];
-    for(my $j=$i;$j<$numGenomes;$j++){
-      next if(defined($self->findDistance($genomeI,$genome[$j])));
-
-      if(!defined($$distHash{$genomeI}{$genome[$j]})){
-        die "Internal error: distance between $genomeI and $genome[$j] is not defined. Here are the distances for both genomes:\n".Dumper({"$genomeI"=>$$distHash{$genomeI}, "$genome[$j]"=>$$distHash{$genome[$j]}});
-        $dbh->rollback; # avoid an "issuing rollback" warning
-      }
+  while(my($g1, $distHash) = each(%$distHash)){
+    while(my($g2, $dist) = each(%$distHash)){
+      next if(defined($self->findDistance($g1,$g2)));
 
       eval{
-        $insert->execute($genomeI, $genome[$j], $$distHash{$genomeI}{$genome[$j]});
+        $insert->execute($g1, $g2, $dist);
       };
+
       if ($@ || $dbh->err() ) {
         $dbh->rollback; # avoid an "issuing rollback" warning
-        die "Error: could not insert distance between $genomeI and $genome[$j] (dist: ".$$distHash{$genomeI}{$genome[$j]}.") into the database:".$dbh->err."\n";
+        die "Error: could not insert distance between $g1 and $g2 (dist: $dist) into the database:".$dbh->err."\n";
       }
       $numInserted++;
     }
   }
-  $dbh->commit;
-  $dbh->{AutoCommit} = $autocommit;
+  #$dbh->commit;
+  #$dbh->{AutoCommit} = $autocommit;
 
   return $numInserted;
 }
@@ -212,8 +203,12 @@ sub findDistance{
 
   my $dbh=$self->{dbh};
   
-  my $sth=$dbh->prepare(qq(SELECT DISTANCE FROM DISTANCE WHERE GENOME1=? AND GENOME2=?));
-  my $rv = $sth->execute( $genome1, $genome2 ) or die $DBI::errstr;
+  my $sth=$dbh->prepare(qq(SELECT DISTANCE FROM DISTANCE WHERE 
+    (GENOME1=? AND GENOME2=?)
+    OR
+    (GENOME2=? AND GENOME1=?)
+  ));
+  my $rv = $sth->execute( $genome1, $genome2, $genome1, $genome2 ) or die $DBI::errstr;
   if($rv < 0){
     die $DBI::errstr;
   }
@@ -225,17 +220,6 @@ sub findDistance{
     ($distance)=@row;
   }
 
-  # Look in reverse order too if we haven't found a value
-  if(!defined $distance){
-    my $sth2=$dbh->prepare(qq(SELECT DISTANCE FROM DISTANCE WHERE GENOME1=? AND GENOME2=?));
-    my $rv2 = $sth2->execute( $genome2, $genome1 ) or die $DBI::errstr;
-    if($rv2 < 0){
-      die $DBI::errstr;
-    }
-    while(my @row=$sth2->fetchrow_array()){
-      ($distance)=@row;
-    }
-  }
   return $distance;
 }
 
