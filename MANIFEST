@@ -33,3 +33,6 @@ t/03_subsample.t
 t/04_fileoffiles.t
 t/06_jackknifingHashes.t
 t/10_sqlite.t
+MANIFEST
+Makefile.PL
+
