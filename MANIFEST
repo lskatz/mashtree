@@ -9,9 +9,6 @@ lib/Bio/Kmer.pm
 lib/Mashtree.pm
 lib/Mashtree/Db.pm
 lib/Mashtree/Mash.pm
-Makefile
-MYMETA.json
-MYMETA.yml
 plugins/mashtree_optimize.pl
 plugins/README.md
 README.md
@@ -29,3 +26,10 @@ t/lambda/sample1.fastq.gz
 t/lambda/sample2.fastq.gz
 t/lambda/sample3.fastq.gz
 t/lambda/sample4.fastq.gz
+t/00_env.t
+t/01_filetypes.t
+t/02_lambda.t
+t/03_subsample.t
+t/04_fileoffiles.t
+t/06_jackknifingHashes.t
+t/10_sqlite.t
