@@ -10,9 +10,11 @@ use_ok 'Mashtree';
 $ENV{PATH}="$RealBin/../bin:".$ENV{PATH};
 
 # Is Mash installed?
-my $mash_is_missing = system("mash >/dev/null 2>&1");
+my $mash_is_missing = system("mash > mash.log 2>&1");
 is $mash_is_missing, 0, "Found Mash in PATH" or
-  diag("The executable Mash was not found in PATH.");
+  diag("The executable Mash was not found in PATH: ".`cat mash.log`);
+
+END{unlink("mash.log");}
 
 # Is Quicktree installed?
 my $quicktree_is_missing = system("quicktree > /dev/null 2>&1");
