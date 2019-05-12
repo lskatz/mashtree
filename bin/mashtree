@@ -36,7 +36,7 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help file-of-files outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version save-sketches:s)) or die $!;
+  GetOptions($settings,qw(help file-of-files outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version save-sketches:s seed=i)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -47,6 +47,7 @@ sub main{
   $$settings{mindepth}//=5;
   $$settings{kmerlength}||=21;
   $$settings{'sketch-size'}||=10000;
+  $$settings{seed}||=42;
 
   # Make some settings lowercase
   for(qw(sort-order)){
@@ -290,7 +291,7 @@ sub mashSketch{
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
       next;
     } else {
-      my $sketchCommand="mash sketch -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq 2>&1";
+      my $sketchCommand="mash sketch -s $$settings{seed} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq 2>&1";
       my $stdout = `$sketchCommand`;
       if ($?){
         logmsg "ERROR running $sketchCommand!\n  $stdout";
@@ -497,6 +498,7 @@ sub usage{
                             to discard lower-abundance kmers.
   --kmerlength         21
   --sketch-size        10000
+  --seed               42   Seed for mash sketch
   --save-sketches      ''   If a directory is supplied, then sketches
                             will be saved in it.
                             If no directory is supplied, then sketches
