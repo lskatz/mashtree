@@ -165,10 +165,10 @@ sub mashtreeRepWorker{
   for my $rep(@$reps){
     logmsg "Rep $rep";
     my $tempdir = $$settings{tempdir}."/$rep";
-    my $seed = int(rand($largeInt));
+    my $seed = int(rand(4.29497e+09)); # apparently 4.29497e+09 is the largest int for mash sketch
     my $repMashtreeOptions .= " --seed $seed";
-    system("$FindBin::RealBin/mashtree --tempdir $tempdir --numcpus 1 $repMashtreeOptions $reads > /dev/null 2>/dev/null ");
-    die "ERROR on rep $rep" if $?;
+    my $stdout = `$FindBin::RealBin/mashtree --tempdir $tempdir --numcpus 1 $repMashtreeOptions $reads 2>&1`;
+    die "ERROR on rep $rep\n$stdout" if $?;
 
     push(@tree, "$$settings{tempdir}/$rep/tree.dnd");
   }

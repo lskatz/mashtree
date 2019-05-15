@@ -291,7 +291,7 @@ sub mashSketch{
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
       next;
     } else {
-      my $sketchCommand="mash sketch -s $$settings{seed} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq 2>&1";
+      my $sketchCommand="mash sketch -S $$settings{seed} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq 2>&1";
       my $stdout = `$sketchCommand`;
       if ($?){
         logmsg "ERROR running $sketchCommand!\n  $stdout";

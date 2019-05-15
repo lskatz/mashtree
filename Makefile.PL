@@ -40,6 +40,7 @@ WriteMakefile1(
     'Bio::Matrix::IO'=> 0,
     'Bio::Tree::DistanceFactory'=> 0,
     'Bio::Tree::Statistics'=> 0,
+    'Bio::Sketch::Mash'    => 0, # ensures that Mash gets loaded
     #'Bio::Kmer'      => 0.19,
     'Graph::Dijkstra'=> 0,
     'JSON'           => '2.90',
