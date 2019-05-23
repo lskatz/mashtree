@@ -34,9 +34,13 @@ flags to `mashtree` using the double-dash like in the example below.
 
 Added in version 0.40.
 
-    mashtree_jackknife.pl --reps 100 --numcpus 12 *.fastq.gz -- --min-depth 0 > mashtree.dnd
+    mashtree_jackknife.pl --reps 100 --numcpus 12 *.fastq.gz -- --min-depth 0 > mashtree.jackknife.dnd
     mashtree_jackknife.pl --help # additional usage help
 
+Bootsrapping was added in version 0.55.  This runs mashtree itself multiple times, each
+with a random seed.
+
+    mashtree_bootstrap.pl --reps 100 --numcpus 12 *.fastq.gz -- --min-depth 0 > mashtree.bootstrap.dnd
 
 ## Usage
 
