@@ -20,9 +20,9 @@ WriteMakefile1(
   AUTHOR => q{Lee S. Katz <gzu2@cdc.gov>},
   EXE_FILES    => [
     "bin/mashtree",
-    "bin/mashtree_wrapper_deprecated.pl",
     "bin/mashtree_jackknife.pl",
     "bin/min_abundance_finder.pl",
+    "bin/mashtree_bootstrap.pl",
   ],
   PREREQ_PM    => {
     # Core modules
