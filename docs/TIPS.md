@@ -35,6 +35,7 @@ This script requires bioperl, which is a prerequisite for Mashtree.
     perl -MBio::TreeIO -MBio::Tree::Statistics -e '
       # Gather all the trees into an array
       for my $file(glob("bootstrapTrees/*.dnd")){
+        next if(! -s $file);
         my $in=Bio::TreeIO->new(-file=>$file);
         while($tree = $in->next_tree){
           push(@tree, $tree);
@@ -42,9 +43,9 @@ This script requires bioperl, which is a prerequisite for Mashtree.
       }
       
       # Combine trees
-      my $baseTree = Bio::TreeIO->new(-file=>"mashtree.dnd")->next_tree
+      my $baseTree = Bio::TreeIO->new(-file=>"mashtree.dnd")->next_tree;
       $stats=Bio::Tree::Statistics->new; 
-      my $bsTree = $stats->assess_bootstrap($baseTree,\@tree);
+      my $bsTree = $stats->assess_bootstrap(\@tree,$baseTree);
       
       print $bsTree->as_text("newick") ."\n";
     ' > bsTree.dnd
