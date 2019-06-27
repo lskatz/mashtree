@@ -97,8 +97,8 @@ sub addDistancesFromHash{
   my $numInserted=0;   # how many are going to be inserted?
 
   my $insert = $dbh->prepare( "INSERT INTO DISTANCE VALUES ( ?, ?, ? )" );
-  #my $autocommit = $dbh->{AutoCommit};
-  #$dbh->{AutoCommit} = 0; # begin a new transaction
+  my $autocommit = $dbh->{AutoCommit};
+  $dbh->{AutoCommit} = 0; # begin a new transaction
   my $query="";
   while(my($g1, $distHash) = each(%$distHash)){
     while(my($g2, $dist) = each(%$distHash)){
@@ -115,8 +115,8 @@ sub addDistancesFromHash{
       $numInserted++;
     }
   }
-  #$dbh->commit;
-  #$dbh->{AutoCommit} = $autocommit;
+  $dbh->commit;
+  $dbh->{AutoCommit} = $autocommit;
 
   return $numInserted;
 }
