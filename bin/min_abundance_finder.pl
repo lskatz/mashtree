@@ -15,7 +15,6 @@ use Data::Dumper qw/Dumper/;
 use File::Basename qw/basename fileparse/;
 use File::Temp qw/tempdir/;
 use List::Util qw/max/;
-use IO::Uncompress::Gunzip qw/gunzip/;
 
 use threads;
 use Thread::Queue;
