@@ -46,6 +46,13 @@ This script requires bioperl, which is a prerequisite for Mashtree.
       my $baseTree = Bio::TreeIO->new(-file=>"mashtree.dnd")->next_tree;
       $stats=Bio::Tree::Statistics->new; 
       my $bsTree = $stats->assess_bootstrap(\@tree,$baseTree);
+      # BioPerl is very respectful about which values are IDs vs which are
+      # bootstraps. However, most tree drawing programs look at IDs, so
+      # we have to alter the ID
+      for ($bsTree->get_nodes){
+        next if($_->is_Leaf); # Do not alter leaves
+        $_->id($_->bootstrap);
+      }
       
       print $bsTree->as_text("newick") ."\n";
     ' > bsTree.dnd
