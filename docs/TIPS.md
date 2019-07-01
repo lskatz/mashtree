@@ -30,6 +30,17 @@ Here is a bash loop to make 100 bootstrap trees
     
 ### Combine bootstrap trees
 
+#### Bootstrapping with RAxML
+
+RAxML is not a prerequisite for Mashtree, and so it might not be installed on your computer even if Mashtree is working.
+
+    cat bootstrapTrees/*.dnd > bootstrapTrees.dnd
+    raxmlHPC -f b -t mashtree.dnd -z bootstrapTrees.dnd -m GTRCAT -n TEST
+    # output file: RAxML_bipartitions.TEST
+    ln -sv RAxML_bipartitions.TEST bsTree.dnd # in case you want to have a sane file extension
+
+#### Bootstrapping with BioPerl
+
 This script requires bioperl, which is a prerequisite for Mashtree.
 
     perl -MBio::TreeIO -MBio::Tree::Statistics -e '
