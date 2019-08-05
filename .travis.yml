@@ -9,10 +9,13 @@ before_install:
   - "yes no | cpanm --force --notest Bio::Perl"
   - cpanm -v -L . DBD::SQLite
   #- "yes no | cpanm --force --notest DBI"
-  - wget https://github.com/marbl/Mash/releases/download/v1.1.1/mash-Linux64-v1.1.1.tar.gz
-  - tar zxvf mash-Linux64-v1.1.1.tar.gz
+  #- wget https://github.com/marbl/Mash/releases/download/v1.1.1/mash-Linux64-v1.1.1.tar.gz
+  #- tar zxvf mash-Linux64-v1.1.1.tar.gz
+  - wget https://github.com/marbl/Mash/releases/download/v2.2/mash-Linux64-v2.2.tar
+  - tar xvf mash-Linux64-v2.2.tar
   - git clone https://github.com/khowe/quicktree.git
   - make -C quicktree
 before_script:
-  - PATH=$PATH:./mash-Linux64-v1.1.1
+  - ls -F # if this test fails, just be sure what the directory is
+  - PATH=$PATH:.mash-Linux64-v2.2
   - export PATH=$PATH:./quicktree
