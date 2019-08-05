@@ -86,7 +86,7 @@ Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 
 ## Requirements
 
-* Mash >= v1.1 - please upgrade to v2.0 for future releases of Mashtree.
+* Mash >= v2.0
 * SQLite3
 * Perl 
   * multithreading 
