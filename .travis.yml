@@ -17,5 +17,5 @@ before_install:
   - make -C quicktree
 before_script:
   - ls -F # if this test fails, just be sure what the directory is
-  - PATH=$PATH:.mash-Linux64-v2.2
+  - PATH=$PATH:./mash-Linux64-v2.2
   - export PATH=$PATH:./quicktree
