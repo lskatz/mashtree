@@ -66,6 +66,9 @@ sub makeClusters{
   my $sth = $dbh->prepare(qq(SELECT GENOME1,GENOME2,DISTANCE
     FROM DISTANCE
     WHERE GENOME1 != GENOME2
+    ORDER BY DISTANCE ASC, 
+             GENOME1  ASC, 
+             GENOME2  ASC
     ));
   my $rv = $sth->execute() or die $DBI::errstr;
   if($rv < 0){
@@ -79,10 +82,10 @@ sub makeClusters{
     $genomeIndex{$g1}=1;
     $genomeIndex{$g2}=1;
 
-    # next if($g1 eq $g2); # take care of this with SQL
-    $dist=$$settings{nonzero} if(!$dist);
+    #$dist=$$settings{nonzero} if(!$dist);
     my($G1,$G2)=sort{$a cmp $b} ($g1,$g2);
     $graph{$G1}{$G2}=$dist;
+    $graph{$G2}{$G1}=$dist;
     $rowCounter++;
 
     if($rowCounter % 1000000 == 0){
@@ -94,45 +97,41 @@ sub makeClusters{
 
   logmsg "Calculating clusters";
   #my @genome=sort {$a cmp $b} map {$$_{id}} $graph->nodeList;
-  my @genome=keys(%genomeIndex);
+  my @genome = sort{$a cmp $b} keys(%genomeIndex);
   my $numGenomes=@genome;
   for(my $i=0;$i<$numGenomes;$i++){
     # Is this genome $i close to anything?
-    logmsg "  $genome[$i]";
-    my $closestGenome="";
-    my $closestDist=0;
-    for(my $j=$i+1;$j<$numGenomes;$j++){
-      #my $dist=0; # default value before getting defined
-      #my $edgeHash=$graph->edge({sourceID=>$genome[$i],targetID=>$genome[$j]});
-      #if(defined($edgeHash)){
-      #  $dist=$$edgeHash{weight};
-      #} else {
-      #  logmsg "Edge not found between $genome[$i] and $genome[$j]. Attempting to apply Dijkstra's algorithm";
-      #  my %solution=(originID=>$genome[$i], destinationID=>$genome[$j]);
-      #  $graph->shortestPath(\%solution);
-      #  $dist=$solution{weight};
-      #}
-      my($G1,$G2)=sort{$a cmp $b} ($genome[$i],$genome[$j]);
-      my $dist = $graph{$G1}{$G2};
+    my $query = $genome[$i];
+    logmsg "Querying with $query";
+    my $hit = undef;
 
-      # Don't record this as a cluster if it isn't close
+    # See if the query is close to any of the current seeds first
+    my @seed           = sort{$a cmp $b} keys(%C);
+    my $numSeeds       = scalar(@seed);
+    my $possibleHit;
+    my $closestSeedDist = ~0;
+    for(my $j=0; $j<$numSeeds; $j++){
+      next if(!defined($graph{$seed[$j]}{$query}));
+      my $dist = $graph{$seed[$j]}{$query};
       next if($dist > $$settings{threshold});
-      next if($closestDist && $dist > $closestDist);
-      #next if($dist==0); # zero indicates "path not found" in Graph::Dijkstra
 
-      $closestGenome=$genome[$j];
-      $closestDist=$dist;
+      if($dist < $closestSeedDist){
+        $possibleHit = $seed[$j];
+        $closestSeedDist = $dist;
+      }
     }
 
-    if($closestGenome){
-      # Initialize the cluster with seed genome $j
-      $C{$closestGenome}||=[$closestGenome];
-      # Add genome $i
-      push(@{ $C{$closestGenome} }, $genome[$i]);
-    } else {
-      logmsg "not clustered: $genome[$i]";
-      $C{$genome[$i]}||=[$genome[$i]];
+    # If it's close to a seed, then record it.
+    if($closestSeedDist <= $$settings{threshold}){
+      logmsg "  => $possibleHit";
+      push(@{ $C{$possibleHit} }, $query);
     }
+    # If it's not close to a seed, start a new seeded cluster.
+    else {
+      logmsg "  => new cluster seeded with $query";
+      $C{$query} = [$query];
+    }
+    
   }
   return \%C;
 }
