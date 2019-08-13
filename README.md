@@ -1,4 +1,5 @@
 # mashtree
+
 Create a tree using Mash distances.
 
 For simple usage, see `mashtree`.  For advanced options, look at `mashtree_wrapper.pl`.
@@ -92,7 +93,7 @@ Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
   * multithreading 
   * BioPerl library
   * `DBD::SQLite`
-* Quicktree.  **Note**: Quicktree version 2.3 has been redistributed in this repo.  This version of Quicktree has been modified to increase the precision from 5 digits to 10 digits.
+* Quicktree
 
 ## Installation
 
@@ -130,9 +131,9 @@ I'm not sure _why_ you'd want to uninstall Mashtree but here is how you would cl
 
 ## Further documentation
 
-For more information please see the [docs folder](docs/)
+For more information and help please see the [docs folder](docs/)
 
-For more information on plugins, see the [plugins folder](plugins).
+For more information on plugins, see the [plugins folder](plugins). (in development)
 
 ## References
 
@@ -148,3 +149,4 @@ Katz, L. S., Griswold, T., & Carleton, H. A. (2017, October 8-11). [_Generating 
 ## GitHub stickers for Mashtree
 
 [![Build Status](https://travis-ci.org/lskatz/mashtree.svg?branch=master)](https://travis-ci.org/lskatz/mashtree)
+

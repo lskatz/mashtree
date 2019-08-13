@@ -7,16 +7,23 @@ use ExtUtils::MakeMaker;
 
 # Some help from
 # http://blogs.perl.org/users/michal_wojciechowski/2011/11/github-friendly-readme-files-with-extutils-makemaker-and-module-build.html
-my $preop = 'true';
+my $preop = 'true;';
   #'sed -i.bak "s/.5f/.10f/g" bin/quicktree-2.3/src/tree.c bin/quicktree-2.3/src/distancemat.c;' .
   #'make -C bin/quicktree-2.3;' .
   #'perldoc -uT $(VERSION_FROM) | tee $(DISTVNAME)/README.pod > README.pod;' .
   #'pod2text README.pod | tee $(DISTVNAME)/README > README';
 
+# Execute something before `make`
+my $preBuild=
+  'rm -f bin/ROSS-v0.3.tar.gz;' .
+  'wget https://github.com/lskatz/ROSS/archive/v0.3.tar.gz -O bin/ROSS-v0.3.tar.gz;'.
+  'tar -zxvf ./bin/ROSS-v0.3.tar.gz --directory ./bin;';
+
 WriteMakefile1(
   NAME         => 'Mashtree',
   VERSION_FROM => 'lib/Mashtree.pm',
-  ABSTRACT_FROM => 'lib/Mashtree.pm',
+  #ABSTRACT_FROM => 'lib/Mashtree.pm',
+  ABSTRACT_FROM => 'README.md',
   AUTHOR => q{Lee S. Katz <gzu2@cdc.gov>},
   EXE_FILES    => [
     "bin/mashtree",
@@ -24,6 +31,9 @@ WriteMakefile1(
     "bin/min_abundance_finder.pl",
     "bin/mashtree_bootstrap.pl",
   ],
+  BEFORE_BUILD=> {
+    exec => $preBuild,
+  },
   PREREQ_PM    => {
     # Core modules
     'File::Basename' => 0,
@@ -91,6 +101,15 @@ sub WriteMakefile1 {  #Compatibility code for old versions of EU::MM. Written by
   delete $params{META_MERGE} if $eumm_version < 6.46;
   delete $params{META_ADD} if $eumm_version < 6.46;
   delete $params{LICENSE} if $eumm_version < 6.31;
+
+  # LK
+  if(defined($params{BEFORE_BUILD})){
+    if(defined($params{BEFORE_BUILD}{exec})){
+      system($params{BEFORE_BUILD}{exec});
+      die if $?;
+    }
+    delete($params{BEFORE_BUILD});
+  }
 
   WriteMakefile(%params);
 }
