@@ -36,7 +36,7 @@ exit main();
 
 sub main{
   my $settings={};
-  GetOptions($settings,qw(help file-of-files outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i version save-sketches:s seed=i)) or die $!;
+  GetOptions($settings,qw(help file-of-files outtree=s outmatrix=s tempdir=s numcpus=i genomesize=i mindepth|min-depth=i truncLength=i kmerlength=i sort-order=s sketch-size=i citation version save-sketches:s seed=i)) or die $!;
   $$settings{numcpus}||=1;
   $$settings{truncLength}||=250;  # how long a genome name is
   $$settings{tempdir}||=tempdir("MASHTREE.XXXXXX",CLEANUP=>1,TMPDIR=>1);
@@ -57,6 +57,10 @@ sub main{
   die usage() if($$settings{help});
   if($$settings{version}){
     print "Mashtree $MASHTREE_VERSION\n";
+    return 0;
+  }
+  if($$settings{citation}){
+    print "Katz, L. S., Griswold, T., & Carleton, H. A. (2017, October 8-11). Generating WGS Trees with Mashtree. Poster presented at the American Society for Microbiology Conference on Rapid Applied Microbial Next-Generation Sequencing and Bioinformatic Pipelines, Washington, DC.\n";
     return 0;
   }
 
@@ -484,6 +488,7 @@ sub usage{
                             this file and not to stdout. Log messages
                             will still go to stderr.
   --version                 Display the version and exit
+  --citation                Display the preferred citation and exit
 
   TREE OPTIONS
   --truncLength        250  How many characters to keep in a filename
