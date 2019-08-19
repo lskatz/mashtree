@@ -39,6 +39,7 @@ WriteMakefile1(
     'File::Basename' => 0,
     'Data::Dumper'   => 0,
     'List::Util'     => 0,
+    'List::MoreUtils'=> 0,
     'Exporter'       => 0,
     # Threads modules
     'threads'        => 0,
