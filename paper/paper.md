@@ -7,40 +7,42 @@ tags:
   - tree
   - rapid
 authors:
-  - name: Lee S. Katz  
-    orcid: 0000-0002-2533-9161  
-    affiliation: "1, 2" 
-  - name: Taylor Griswold  
-    orcid: 0000-0000-0000-0000  
-    affiliation: 1  
-  - name: Shatavia Morrison  
-    orcid: 0000-0000-0000-0000   
-    affiliation: 1  
-  - name: Jason Caravas  
-    orcid: 0000-0001-9111-406X  
-    affiliation: 1  
-  - name: Shaokang Zhang  
-    orcid: 0000-0000-0000-0000  
-    affiliation: 2  
-  - name: Hendrik den Bakker  
-    orcid: 0000-0002-4086-1580  
-    affiliation: 2  
-  - name: Xiangyu Deng  
-    orcid: 0000-0000-0000-0000  
-    affiliation: 2  
-  - name: Brian Raphael  
-    orcid: 0000-0003-2778-2623  
-    affiliation: 1  
-  - name: Heather A. Carleton  
-    orcid: 0000-0000-0000-0000  
-    affiliation: 1  
+  - name: Lee S. Katz
+    orcid: 0000-0002-2533-9161
+    affiliation: "1, 2"
+  - name: Taylor Griswold
+    orcid: 0000-0000-0000-0000
+    affiliation: 1
+  - name: Shatavia Morrison
+    orcid: 0000-0002-4658-5951
+    affiliation: 3 
+  - name: Jason Caravas
+    orcid: 0000-0001-9111-406X
+    affiliation: 1
+  - name: Shaokang Zhang
+    orcid: 0000-0000-0000-0000
+    affiliation: 2
+  - name: Hendrik den Bakker
+    orcid: 0000-0002-4086-1580
+    affiliation: 2
+  - name: Xiangyu Deng
+    orcid: 0000-0000-0000-0000
+    affiliation: 2
+  - name: Brian Raphael
+    orcid: 0000-0003-2778-2623
+    affiliation: 1
+  - name: Heather A. Carleton
+    orcid: 0000-0000-0000-0000
+    affiliation: 1
 affiliations:
-  - name: Enteric Diseases Laboratory Branch, Centers for Disease Control and Prevention, Atlanta, GA, USA  
-    index: 1  
-  - name: Center for Food Safety, University of Georgia, Griffin, GA, USA  
-    index: 2  
-date: 20 August 2019  
-bibliography: paper.bib  
+  - name: Enteric Diseases Laboratory Branch, Centers for Disease Control and Prevention, Atlanta, GA, USA
+    index: 1
+  - name: Center for Food Safety, University of Georgia, Griffin, GA, USA
+    index: 2
+ - name: Respiratory Diseases Laboratory Branch, Centers for Disease Control and Prevention, Atlanta, GA, USA
+   index: 3
+date: 20 August 2019
+bibliography: paper.bib
 ---
 
 # Summary
