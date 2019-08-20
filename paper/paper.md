@@ -18,7 +18,7 @@ authors:
     affiliation: 3 
   - name: Jason Caravas
     orcid: 0000-0001-9111-406X
-    affiliation: 1
+    affiliation: 3
   - name: Shaokang Zhang
     orcid: 0000-0000-0000-0000
     affiliation: 2
@@ -30,7 +30,7 @@ authors:
     affiliation: 2
   - name: Brian Raphael
     orcid: 0000-0003-2778-2623
-    affiliation: 1
+    affiliation: 3
   - name: Heather A. Carleton
     orcid: 0000-0000-0000-0000
     affiliation: 1
@@ -39,8 +39,8 @@ affiliations:
     index: 1
   - name: Center for Food Safety, University of Georgia, Griffin, GA, USA
     index: 2
- - name: Respiratory Diseases Laboratory Branch, Centers for Disease Control and Prevention, Atlanta, GA, USA
-   index: 3
+  - name: Respiratory Diseases Laboratory Branch, Centers for Disease Control and Prevention, Atlanta, GA, USA
+    index: 3
 date: 20 August 2019
 bibliography: paper.bib
 ---
