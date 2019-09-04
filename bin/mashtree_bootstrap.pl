@@ -115,6 +115,7 @@ sub main{
   }
 
   # Sample the mash sketches with replacement for rapid bootstrapping
+  logmsg "Running mashtree single-threaded among $$settings{reps} replicates using $$settings{numcpus} total threads.";
   my @bsThread;
   for my $i(0..$$settings{numcpus}-1){
     my %settingsCopy = %$settings;
