@@ -1,85 +1,107 @@
 ---
-title: 'Mashtree: rapid comparison of whole genome sequence files'
-tags:
-  - dendrogram
-  - mash
-  - sketch
-  - tree
-  - rapid
-authors:
-  - name: Lee S. Katz  
-    orcid: 0000-0002-2533-9161  
-    affiliation: "1, 2" 
-  - name: Taylor Griswold  
-    orcid: 0000-0000-0000-0000  
-    affiliation: 1  
-  - name: Shatavia Morrison  
-    orcid: 0000-0000-0000-0000   
-    affiliation: 1  
-  - name: Jason Caravas  
-    orcid: 0000-0001-9111-406X  
-    affiliation: 1  
-  - name: Shaokang Zhang  
-    orcid: 0000-0000-0000-0000  
-    affiliation: 2  
-  - name: Hendrik den Bakker  
-    orcid: 0000-0002-4086-1580  
-    affiliation: 2  
-  - name: Xiangyu Deng  
-    orcid: 0000-0000-0000-0000  
-    affiliation: 2  
-  - name: Brian Raphael  
-    orcid: 0000-0003-2778-2623  
-    affiliation: 1  
-  - name: Heather A. Carleton  
-    orcid: 0000-0000-0000-0000  
-    affiliation: 1  
-affiliations:
-  - name: Enteric Diseases Laboratory Branch, Centers for Disease Control and Prevention, Atlanta, GA, USA  
-    index: 1  
-  - name: Center for Food Safety, University of Georgia, Griffin, GA, USA  
-    index: 2  
-date: 20 August 2019  
-bibliography: paper.bib  
+title: 'Mashtree: a rapid comparison of whole genome sequence files'
+author:
+- affiliation: "1, 2"
+  name: Lee S. Katz
+  orcid: 0000-0002-2533-9161
+- affiliation: 1
+  name: Taylor Griswold
+- affiliation: 3
+  name: Shatavia Morrison
+  orcid: 0000-0002-4658-5951
+- affiliation: 3
+  name: Jason Caravas
+  orcid: 0000-0001-9111-406X
+- affiliation: 2
+  name: Shaokang Zhang
+  orcid: 0000-0003-0874-2212
+- affiliation: 2
+  name: Henk C. den Bakker
+  orcid: 0000-0002-4086-1580
+- affiliation: 2
+  name: Xiangyu Deng
+- affiliation: 2
+  name: Heather A. Carleton
+date: "11 September 2019"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+  word_document: default
+bibliography: paper.bib
+tag:
+- dendrogram
+- mash
+- sketch
+- tree
+- rapid
+affiliation:
+- index: 1
+  name: Enteric Diseases Laboratory Branch, Centers for Disease Control and Prevention,
+    Atlanta, GA, USA
+- index: 2
+  name: Center for Food Safety, University of Georgia, Griffin, GA, USA
+- index: 3
+  name: Respiratory Diseases Laboratory Branch, Centers for Disease Control and Prevention,
+    Atlanta, GA, USA
 ---
 
 # Summary
 
-In the past decade, the number of publically available bacterial genomes has increased dramatically.
-In the past few years, these genomes have increasingly been generated for impactful initiatives, especially genomic epidemiology **GenFS REF**.
-Genomes are sequenced, shared publicly, and consequently analyzed for phylogenetic relatedness.
+In the past decade, the number of publicly available bacterial genomes has increased dramatically.
+These genomes have been generated for impactful initiatives, especially in the field of genomic epidemiology [@Timme:2017; @Brown:2019].
+Genomes are sequenced, shared publicly, and subsequently analyzed for phylogenetic relatedness.
 If two genomes of epidemiological interest are found to be related, further investigation might be prompted.
-However, comparing the multitudes of genomes for shared phylogeny is computationally expensive and in many ways intractable.  
+However, comparing the multitudes of genomes for phylogenetic relatedness is computationally expensive and, with large numbers, laborious.
 
-However, there are many strategies to reduce the complexity of the data.  One strategy is to create multilocus sequence type (MLST) profiles from each genome as it is sequenced.  In MLST analysis, only the allelic variants are analyzed, reducing the complexity per genome from millions of base pairs to either seven genes or thousands of genes `[@Moura:2017]`.  Another strategy is to assemble each genome such that the hundreds of thousands of reads per genome is compressed into a contiguous sequence.  Starting from the assembly, creating a genome-wide multiple sequence alignment becomes more simplified.  One example is the speed and accuracy is how the assembler Skesa is used in the Pathogen Detection Pipeline website `[@Souvorov:2018]`.  Yet another classic strategy is reducing each genome down to split kmers.  Split kmers have been been implemented in many software packages including KSNP `[@Gardner:2015]` and SKA `[@Harris:2018]`.
+Consequently, there are many strategies to reduce the complexity of the data for downstream analysis.
+One strategy is to create a fast and accurate *de novo* assembly with software such as SKESA [@Souvorov:2018].
+The sizes of the resulting assemblies are usually in the megabases, whereas the raw data are usually in the hundreds of megabases. Therefore, downstream analyses on the compact assemblies can be much faster.
 
-Recently an algorithm called min-hash was codified into the Mash package which helps simplify the vast genomic data further `[@Ondov:2016]`.  In the min-hash algorithm, all nucleotides of length _k_ (kmers) are recorded and transformed into an integer using an algorithm called hashing.  These hashed kmers are sorted and only the first several kmers are retained.  The semi-random kmers that appear at the top of the sorted list is collectively called the sketch.  To compare two genomes that have been sketched with the min-hash algorithm is to compare how many hashed kmers they have in common.  Therefore, the min-hash algorithm can yield a very fast, computationally inexpensive distance between any two genomes.
+One strategy is to create multilocus sequence type (MLST) profiles from each genome to be analyzed.  In MLST analysis, only the allelic variants are analyzed, either via reference-based mapping or via *de novo* genome assemblies. This reduction of data from raw sequence reads or assemblies, down to a subset of approximately seven genes or thousands of genes, reduces the complexity of the analysis from millions of base pairs to a subset of genes and their allele calls [@Moura:2017; @Oakeson:2017; @Alikhan:2018]. The allele calls can then be used to compute a distance matrix rapidly.
 
-Creating a dendrogram from genome distances is encoded in several algorithms.  One widely used algorithm is neighbor-joining (NJ) `[@Saitou:1987]`.  The NJ algorithm reads a set of genomes and iterates over their distances.  Each genome starts as a leaf node in a star-like tree.  In each iteration of NJ, the most related genomes (neighbors) are identified and are given a common node on the growing tree.  Then, new distances are calculated between all nodes and the new node.  The product of the NJ algorithm is a binary tree, where each node except the root has one parent node and zero or two children.
+Another fast downstream analysis that is routinely performed is on the NCBI Pathogens site, where the SKESA assemblies are used to identify clusters of genomes in a whole-genome MLST (wgMLST) analysis.
+For each cluster of genomes as determined by wgMLST, single nucleotide polymorphisms (SNPs) are identified. These SNPs are used to inter a phylogenetic signal, and those results are displayed online [@NCBI_Pathogens].
 
-Because min-hash creates distances between any two genomes and because NJ uses distances to create trees, min-hash values can be used to create trees.  We have implemented this idea in software called Mashtree which creates rapid trees.  
+Yet another classic strategy is reducing each genome down to split kmers. With split kmer analysis, kmers on both sides of a variable site are recorded, and the variable nucleotide is identified. When comparing two or more genomes, the variable sites are compared. Split kmers have been implemented in many software packages including KSNP and SKA [@Gardner:2015; @Harris:2018].
+This strategy essentially eliminates the assembly steps required in a genome-wide approach and allows for comparative whole genome analysis based on short fragments, usually from 13 to 31 base pairs at a time.
+
+Several bioinformatics applications have been released which utilize the kmer-based strategy to convert next generation sequencing data into manageable datasets, usually called sketches [@Ondov:2016; @Baker:2019; @Zhao:2018].
+Most notably, an algorithm called min-hash was implemented in the Mash package [@Ondov:2016].  In the min-hash algorithm, all nucleotides of length _k_ (kmers) are recorded and transformed into integers using an algorithm called hashing.  These hashed kmers are sorted and only the first several kmers are retained.  The kmers that appear at the top of the sorted list are collectively called the sketch.  Sketches are a representation of an organism's genome, and comparing multiple sketches can be used to estimate relatedness.
+In other words, two genomes that have been sketched with the min-hash algorithm can be compared by counting how many hashed kmers they have in common. 
+
+A dendrogram can be calculated from pairwise genome distances by several algorithms [@Kuhner:1994]. One widely used algorithm is neighbor-joining (NJ) [@Saitou:1987].  The NJ algorithm reads a matrix of pairwise genomic distances. Each genome starts as a leaf node in a star-like tree.  In each iteration of NJ, the most related genomes or nodes (neighbors) are identified by seeking the lowest distance value in the matrix. Neighbors are given a common node on the growing tree.  Then, new distances are calculated between all nodes and the new node.  The product of the NJ algorithm is a binary tree, where each node except the root has one parent node and zero or two children.
+
+Because min-hash creates distances between any two genomes and NJ uses distances to create trees, min-hash values can be used to rapidly cluster genomes into trees.  We implemented this idea in software called Mashtree, which quickly and efficiently generates large trees that would be computationally intensive using other methods.
 
 # Implementation
 
 ## Base workflow
 
-Mashtree builds on two major algorithms that are already codified.  The first is the min-hash algorithm, which is codified in the software Mash.  Mash sketches the genomes with the function `mash sketch`.  We elected to keep most default Mash options but to change the stack size (number of hashed kmers) from 1,000 to 10,000 to increase discriminatory power.  Then, mash calculates the distances between genomes with `mash dist`.  These distances are recorded in a Mash distance matrix.  The second algorithm is neighbor-joining (NJ) which is implemented in the software QuickTree `[@Howe:2002]`.  All default QuickTree options are used, and it reads the Mash distance matrix as input.  The workflow is depicted in Figure 1.
+Mashtree builds on two major algorithms that are already implemented in other software packages. The first is the min-hash algorithm, which is implemented in the software Mash [@Ondov:2016].  Mashtree uses Mash to create sketches of the genomes with the function `mash sketch`.  We elected to keep most default Mash parameters but increased the sketch size (number of hashed kmers) from 1,000 to 10,000 to increase discriminatory power.  Then, Mash is used to calculate the distances between genomes with `mash dist`.  Mashtree records these distances into a pairwise distance matrix. Next, Mashtree calls the neighbor-joining (NJ) algorithm which is implemented in the software QuickTree [@Howe:2002].  The Mash distance matrix is used with QuickTree with default options to generate a dendrogram.  The workflow is depicted in [Figure 1].
 
 ## Fast or accurate mode
 
-While Mashtree has been developed for speed, some might want higher accuracy.  In response, we have implemented an optional minimum abundance filter for raw read input files.  This filter creates a histogram of kmers using Mash and detects the valleys between peaks.  The first peak of a kmer histogram represents kmers that occur only once or rarely.  These "rare" kmers usually represent sequencing errors.  Therefore the minimum abundance filter can optionally be used to see where the first valley is and automatically set that parameter for the minimum kmer coverage that Mash reports.  Using this filter therefore helps avoid noise in the input data.  Running accurate mode is shorthand for running Mashtree with the minimum abundance filter turned on.  Otherwise by default, a user is running fast mode.
+While Mashtree has been developed for speed, some might want higher accuracy.  In response, we have implemented an optional minimum abundance filter for raw read input files.  This filter creates a histogram of kmers using Mash and detects the valleys between peaks.  The first (left-most) peak of a kmer histogram represents kmers that occur only once or rarely.  These "rare" kmers usually represent sequencing errors.  Therefore, the minimum abundance filter can optionally be used to see where the first valley is and automatically set that value for the minimum kmer coverage parameter.  Using this filter helps avoid noise in the input data.  Running in accurate mode is shorthand for running Mashtree with the minimum abundance filter turned on.  Otherwise by default, a user is running in fast mode.
 
 ## Confidence values
 
-We have implemented two methods of confidence values in Mashtree.  In both methods, the tree is created per the normal workflow.  Then, in the bootstrapping method (Figure 2), the tree is created again once per repetition.  In each repetition, the random seed for Mash is changed randomly.  Therefore, distances will vary randomly between repetitions, and the repetition tree will vary.
+Most phylogenetic trees have confidence scores associated with each hypothetical ancestor node.
+These support scores are typically generated by resampling the input data many times, analyzing each replicate in context of the original phylogeny.
+Strong  support for a node in the input data will result in consistent recovery of that node in the majority of resampled replicate trees.  Conversely, nodes which have low support in the input data will be sensitive to stochastic changes in the resampled sketches which can result in alternate topologies of involved isolates.  Therefore, the support value correlates with the robustness and reproducibility of a recovered relationship.  As the NJ tree recovered from a single tree reconstruction will always be a fully resolved binary tree, the addition of these resampled support values provides a valuable tool for assessing the confidence and reliability of a node.  This can be especially helpful when trying to assess the exact topology of clades containing  three or more very closely related genomes.  
 
-In the jackknife method for each repetition, each genome is picked one at a time as the query genome (Figure 3).  Its hashes are sampled without replacement for half of the original hashes.  Then, a Mash distance is recomputed between the query genome and all other genomes in the analysis.  After all genomes have been analyzed as the query in this way, an average distance is computed between all genomes.  This new distance matrix is used for a NJ tree.   
+Although Mashtree does not infer phylogeny, we have borrowed the ideas behind phylogenetic confidence values to yield confidence values for each parent node in the tree. There are two resampling methods implemented in Mashtree to assign support values to infernal nodes, bootstrapping and jackknifing. Initially, both methods create a tree as depicted in [Figure 1]. 
 
-For repetitions in either the bootstrap or jackknife trees, for each parent node in the original tree, a percentage of how often the exact descendents are present is recorded and applied in the final dendrogram file.  The bootstrapping method is implemented in `mashtree_bootstrap.pl`, and the jackkniffing method is implemented in `mashtree_jackknife.pl`.
+The bootstrapping method infers confidence on the tree by creating one new tree per replication ([Figure 2]). However, instead of accepting the default seed value for Mash, a new one is generated.
+Changing this seed value will affect the value of hashed kmers and how they sort, therefore providing a different sampling of kmers in the sketch.
+Due to changes in sketch sampling, distances between genomes can differ and the resulting tree in the replication can differ. Then, nodes in the original tree are assigned support values based on how frequently the same bipartition was recovered in the replicate trees.
+
+In the jackknife method, for each replication, each genome is picked one at a time as the query genome ([Figure 3]).  Its hashes are sampled without replacement for half of the original hashes.  Then, a Mash distance is recomputed between the query genome and all other genomes in the analysis.
+When the distances are recorded in the replicate's pairwise distance matrix, the average distance between each comparison is used of each query-reference genome pair, and vice versa. This new distance matrix is used for computing a NJ tree. Nodes in the original tree are assigned support values based on how frequently the same bipartition was recovered in replicate trees.
 
 ## Other features
 
-Mashtree has several useful features.  First, Mashtree can read any major sequence file type and can read gzip-compressed files.  This is a major advantage in being compatible with a wide variety of databases and in being compatible with space-saving file compression.  Second, Mashtree takes advantage of multithreading.  The number of requested threads is used to determine how many genomes are sketched at the same time and how many sketches can be compared at the same time.  When the number of threads requested is a multiple of the number of input genomes, Mashtree uses multithreaded Mash sketches and distances.  Third, Mashtree uses an SQLite database which can be used to cache results between runs.
+Mashtree has several other useful features.  First, Mashtree can read any common sequence file type and can read gzip-compressed files (e.g., fastq, fastq.gz, fasta).  This is a major advantage in being compatible with a wide variety of databases and with space-saving file compression.  Second, Mashtree takes advantage of multithreading.  The number of requested threads is used to determine how many genomes are sketched at the same time and how many sketches can be compared at the same time.  When the number of threads requested outnumbers the number of operations that it can parallelize, Mashtree uses the multithreading already encoded in Mash sketches and distances.  Third, Mashtree uses an SQLite database which can be used to cache results between runs.
 
 # Installation
 
@@ -88,27 +110,59 @@ The Mashtree package is programmed in Perl, and is available in the CPAN reposit
 # Figures
 
 ![Figure 1](Mashtree_workflow.png)  
-**Figure 1.  The Mashtree workflow.**  
-*Step 1.* Sketch genomes with Mash. In this analogy, there is an image of each genome.  In the subsequent images, the "sketches," there is a piece of the genome missing.  
-*Step 2.* calculate distances with `Mash dist`.  
-*Step 3.* create dendrogram with Quicktree.  
+
+## Figure 1.  The Mashtree workflow
+
+### Step 1
+
+Sketch genomes with Mash. In this schematic, there is a green circle representing each genome in the analysis.  Filled-in brown circles indicate the presence of a kmer.  Missing circles represent true absence.  After hashing with a sketch size of six (after the arrow), some kmers are not represented in the Mash sketch either because they are not present in the original genome or because only a finite number of kmers are sketched (e.g., six in this example).  Henceforth, truly missing hashes or hashes not included in the Mash sketch are represented by empty circles.  
+
+### Step 2
+
+Calculate distances with `Mash dist`.  Distances in the figure are represented by Jaccard distances, which are calculated as the intersection divided by the union.  In this example, the genomes are separated by Jaccard distances of 5/9, 4/9, and 3/9.  These jaccard distances are internally transformed into Mash distances [@Ondov:2016].  
+
+### Step 3.
+
+Create dendrogram with Quicktree using the Mash distance matrix.
 
 ![Figure 2](Bootstrap_workflow.png)  
-**Figure 2.  The Mashtree bootstrap workflow.**  
-*Step 1.* Generate a tree with the normal workflow (Figure 1).  Save the Mashtree tree.  
-*Step 2.* Run the normal workflow once per repetition but with a different random seed. In this example, the top right repetition differs from the main tree.  All ten of these trees are the bootstrap trees.  
-*Step 3.* For each parent node in the first tree, quantify how often the bootstrap trees have the same children.  Record that percentage next to each parent node.  This percentage quantifies how confident Mashtree is at clustering, controlling for the random seed in the Mash program.
+
+## Figure 2 The Mashtree bootstrap workflow
+
+### Step 1
+
+Generate a tree with the normal workflow [Figure 1](Figure 1). This is the main tree.
+
+### Step 2
+
+Run the normal workflow once per replicate but with a different random seed. In this example, the top right replicate differs from the main tree.  All ten of these trees are the bootstrap tree replicates.  
+
+### Step 3
+
+For each parent node in the main tree, quantify how many bootstrap tree replicates have the same node with the same children. Record that percentage next to each parent node. This percentage quantifies how confident the Mashtree cluster is, controlling for the random seed in the Mash program.
 
 ![Figure 3](Jackknife_workflow.png)  
-**Figure 3.  The Mashtree jackknife workflow.**  
-*Step 1.* Generate a tree with the normal workflow (Figure 1).  Save the Mash hashes.  
-*Step 2.* For each repetition, sample the half hashes of one genome at a time without replacement.  This genome is the query genome.  Recalculate the Mash distance between the query genome and all other genomes, reducing the denominator to one half to reflect the smaller pool of hashes.  After all genomes have been selected for query genomes, average the distances to create a new distance matrix.  Create the dendrogram from the new distance matrix.  For brevity, only one repetition is shown.  
-*Step 3.* For each parent node in the first tree, quantify how often the bootstrap trees have the same children.  Record that percentage next to each parent node.  This percentage quantifies how confident Mashtree is at clustering, controlling for the random seed in the Mash program.
 
+## Figure 3.  The Mashtree jackknife workflow
 
+### Step 1 
+
+Generate a tree with the normal workflow [Figure 1](Figure 1). This is the main tree.
+
+### Step 2
+
+For each replicate, sample the half hashes without replacement for each query genome. Recalculate the Mash distance between the query genome and all other genomes, reducing the denominator to one half, rounding up, to reflect the smaller pool of hashes.  After all genomes have been selected for query genomes, average the distances to create a new distance matrix.  Create the dendrogram from the new distance matrix.  For brevity, only one detailed replicate is shown.  
+
+### Step 3
+
+For each replication, calculate the new tree from the new distance matrix. In this example, the top right replication differs from the main tree. All ten of these trees are the jack knife tree replicates.  
+
+### Step 4
+
+For each parent node in the main tree, quantify how many jack knife tree replicates have the same node with the same children. Record that percentage next to each parent node.  This percentage quantifies how confident Mashtree is at clustering, controlling for stochasticity in hashes.
 
 # Acknowledgements
 
-This work was made possible through support from the Advanced Molecular Detection (AMD) Initiative at the Centers for Disease Control and Prevention.  Thank you Sam Minot, Andrew Page, and Torsten Seemann for helpful discussions.
+This work was made possible through support from the Advanced Molecular Detection (AMD) Initiative at the Centers for Disease Control and Prevention.  Thank you Sam Minot, Andrew Page, Brian Raphael, and Torsten Seemann for helpful discussions.
 
 # References

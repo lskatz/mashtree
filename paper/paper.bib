@@ -1,5 +1,5 @@
 @article{Moura:2017,
-  title={Whole genome-based population biology and epidemiological surveillance of Listeria monocytogenes},
+  title={Whole genome-based population biology and epidemiological surveillance of \emph{Listeria monocytogenes}},
   author={Moura, Alexandra and Criscuolo, Alexis and Pouseele, Hannes and Maury, Myl{\`e}ne M and Leclercq, Alexandre and Tarr, Cheryl and Bj{\"o}rkman, Jonas T and Dallman, Timothy and Reimer, Aleisha and Enouf, Vincent and others},
   journal={Nature microbiology},
   volume={2},
@@ -72,3 +72,111 @@
   publisher={Oxford University Press}
 }
 
+@article{Timme:2017,
+  title={Benchmark datasets for phylogenomic pipeline validation, applications for foodborne pathogen surveillance},
+  author={Timme, Ruth E and Rand, Hugh and Shumway, Martin and Trees, Eija K and Simmons, Mustafa and Agarwala, Richa and Davis, Steven and Tillman, Glenn E and Defibaugh-Chavez, Stephanie and Carleton, Heather A and others},
+  journal={PeerJ},
+  volume={5},
+  pages={e3893},
+  year={2017},
+  publisher={PeerJ Inc.}
+}
+
+@article{Oakeson:2017,
+  title={Bioinformatic analyses of whole-genome sequence data in a public health laboratory},
+  author={Oakeson, Kelly F and Wagner, Jennifer Marie and Mendenhall, Michelle and Rohrwasser, Andreas and Atkinson-Dunn, Robyn},
+  journal={Emerging infectious diseases},
+  volume={23},
+  number={9},
+  pages={1441},
+  year={2017},
+  publisher={Centers for Disease Control and Prevention}
+}
+
+@article {Baker:2019,
+	author = {Baker, Daniel N and Langmead, Ben},
+	title = {Dashing: Fast and Accurate Genomic Distances with HyperLogLog},
+	elocation-id = {501726},
+	year = {2019},
+	doi = {10.1101/501726},
+	publisher = {Cold Spring Harbor Laboratory},
+	abstract = {Dashing is a fast and accurate software tool for estimating similarities of genomes or sequencing datasets. It uses the HyperLogLog sketch together with cardinality estimation methods that are specialized for set unions and intersections. Dashing summarizes genomes more rapidly than previous MinHash-based methods while providing greater accuracy across a wide range of input sizes and sketch sizes. It can sketch and calculate pairwise distances for over 87K genomes in 6 minutes. Dashing is open source and available at https://github.com/dnbaker/dashing.},
+	URL = {https://www.biorxiv.org/content/early/2019/02/04/501726},
+	eprint = {https://www.biorxiv.org/content/early/2019/02/04/501726.full.pdf},
+	journal = {bioRxiv}
+}
+
+@article {Brown:2016,
+	author = {Brown, C. Titus and Irber, Luiz},
+	title = {Sourmash: a library for MinHash sketching of DNA},
+	year = {2019},
+	doi = {10.21105/joss.00027},
+	publisher = {Journal of open source software},
+	URL = {https://joss.theoj.org/papers/10.21105/joss.00027},
+	eprint = {https://joss.theoj.org/papers/10.21105/joss.00027},
+	journal = {joss}
+}
+
+@article{Zhao:2018,
+    author = {Zhao, XiaoFei},
+    title = "{BinDash, software for fast genome distance estimation on a typical personal laptop}",
+    journal = {Bioinformatics},
+    volume = {35},
+    number = {4},
+    pages = {671-673},
+    year = {2018},
+    month = {07},
+    abstract = "{The number of genomes (including meta-genomes) is increasing at an accelerating pace. In the near future, we may need to estimate pairwise distances between millions of genomes. Even with the use of cloud computing, very few softwares can perform such estimation.The multi-threaded software BinDash can perform such estimation using only a typical personal laptop. BinDash implemented b-bit one-permutation rolling MinHash with optimal densification, an existing data-mining technique. BinDash empirically outperforms the state-of-the-art software in terms of precision, compression ratio, memory usage and runtime according to our evaluation. Our evaluation is performed with a Dell Inspiron 157 559 Notebook on all bacterial genomes in RefSeq.BinDash is released under the Apache 2.0 license at https://github.com/zhaoxiaofei/BinDash.Supplementary data are available at Bioinformatics online.}",
+    issn = {1367-4803},
+    doi = {10.1093/bioinformatics/bty651},
+    url = {https://doi.org/10.1093/bioinformatics/bty651},
+    eprint = {http://oup.prod.sis.lan/bioinformatics/article-pdf/35/4/671/27838595/bty651.pdf},
+}
+
+@article{Kuhner:1994,
+    author = {Kuhner, Mary K and Felsenstein, Joseph},
+    title = "{A simulation comparison of phylogeny algorithms under equal and unequal evolutionary rates.}",
+    journal = {Molecular Biology and Evolution},
+    volume = {11},
+    number = {3},
+    pages = {459-468},
+    year = {1994},
+    month = {05},
+    abstract = "{Using simulated data, we compared five methods of phylogenetic tree estimation: parsimony, compatibility, maximum likelihood, Fitch-Margoliash, and neighbor joining. For each combination of substitution rates and sequence length, 100 data sets were generated for each of 50 trees, for a total of 5,000 replications per condition. Accuracy was measured by two measures of the distance between the true tree and the estimate of the tree, one measure sensitive to accuracy of branch lengths and the other not. The distance-matrix methods (Fitch-Margoliash and neighbor joining) performed best when they were constrained from estimating negative branch lengths; all comparisons with other methods used this constraint. Parsimony and compatibility had similar results, with compatibility generally inferior; Fitch-Margoliash and neighbor joining had similar results, with neighbor joining generally slightly inferior. Maximum likelihood was the most successful method overall, although for short sequences Fitch-Margoliash and neighbor joining were sometimes better. Bias of the estimates was inferred by measuring whether the independent estimates of a tree for different data sets were closer to the true tree than to each other. Parsimony and compatibility had particular difficulty with inaccuracy and bias when substitution rates varied among different branches. When rates of evolution varied among different sites, all methods showed signs of inaccuracy and bias.}",
+    issn = {0737-4038},
+    doi = {10.1093/oxfordjournals.molbev.a040126},
+    url = {https://doi.org/10.1093/oxfordjournals.molbev.a040126},
+    eprint = {http://oup.prod.sis.lan/mbe/article-pdf/11/3/459/11167048/13kuhn.pdf},
+}
+
+@Misc{NCBI_Pathogens,
+  Title                    = {Pathogen Detection},
+
+  Author                   = {NCBI},
+  Year                     = {2019},
+
+  Type                     = {Website},
+  Url                      = {https://www.ncbi.nlm.nih.gov/pathogens}
+}
+
+@article{Brown:2019,
+  title={Use of whole-genome sequencing for food safety and public health in the united states},
+  author={Brown, Eric and Dessai, Uday and McGarry, Sherri and Gerner-Smidt, Peter},
+  journal={Foodborne pathogens and disease},
+  volume={16},
+  number={7},
+  pages={441--450},
+  year={2019},
+  publisher={Mary Ann Liebert, Inc., publishers 140 Huguenot Street, 3rd Floor New~.}
+}
+
+@article{Alikhan:2018,
+  title={{A genomic overview of the population structure of \emph{Salmonella}}},
+  author={Alikhan, Nabil-Fareed and Zhou, Zhemin and Sergeant, Martin J and Achtman, Mark},
+  journal={PLoS genetics},
+  volume={14},
+  number={4},
+  pages={e1007261},
+  year={2018},
+  publisher={Public Library of Science San Francisco, CA USA}
+}
