@@ -58,7 +58,7 @@ Consequently, there are many strategies to reduce the complexity of the data for
 One strategy is to create a fast and accurate *de novo* assembly with software such as SKESA [@Souvorov:2018].
 The sizes of the resulting assemblies are usually in the megabases, whereas the raw data are usually in the hundreds of megabases. Therefore, downstream analyses on the compact assemblies can be much faster.
 
-One strategy is to create multilocus sequence type (MLST) profiles from each genome to be analyzed.  In MLST analysis, only the allelic variants are analyzed, either via reference-based mapping or via *de novo* genome assemblies. This reduction of data from raw sequence reads or assemblies, down to a subset of approximately seven genes or thousands of genes, reduces the complexity of the analysis from millions of base pairs to a subset of genes and their allele calls [@Moura:2017; @Oakeson:2017; @Alikhan:2018]. The allele calls can then be used to compute a distance matrix rapidly.
+One strategy is to create multilocus sequence type (MLST) profiles from each genome to be analyzed.  In MLST analysis, only the allelic variants are analyzed, either via reference-based mapping or via *de novo* genome assemblies. This reduction of data from raw sequence reads or assemblies, down to a subset of seven to thousands of genes, reduces the complexity of the analysis from millions of base pairs to a subset of genes and their allele calls [@Moura:2017;@Maiden:2013; @Alikhan:2018]. The allele calls can then be used to compute a distance matrix rapidly.
 
 Another fast downstream analysis that is routinely performed is on the NCBI Pathogens site, where the SKESA assemblies are used to identify clusters of genomes in a whole-genome MLST (wgMLST) analysis.
 For each cluster of genomes as determined by wgMLST, single nucleotide polymorphisms (SNPs) are identified. These SNPs are used to inter a phylogenetic signal, and those results are displayed online [@NCBI_Pathogens].
@@ -164,5 +164,6 @@ For each parent node in the main tree, quantify how many jack knife tree replica
 # Acknowledgements
 
 This work was made possible through support from the Advanced Molecular Detection (AMD) Initiative at the Centers for Disease Control and Prevention.  Thank you Sam Minot, Andrew Page, Brian Raphael, and Torsten Seemann for helpful discussions.
+The findings and conclusions in this report are those of the authors and do not necessarily represent the official position of the Centers for Disease Control and Prevention.
 
 # References
