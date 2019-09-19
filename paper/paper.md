@@ -1,6 +1,6 @@
 ---
 title: 'Mashtree: a rapid comparison of whole genome sequence files'
-author:
+authors:
 - affiliation: "1, 2"
   name: Lee S. Katz
   orcid: 0000-0002-2533-9161
@@ -35,7 +35,7 @@ tags:
 - sketch
 - tree
 - rapid
-affiliation:
+affiliations:
 - index: 1
   name: Enteric Diseases Laboratory Branch, Centers for Disease Control and Prevention,
     Atlanta, GA, USA
