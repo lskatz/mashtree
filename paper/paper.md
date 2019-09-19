@@ -29,7 +29,7 @@ output:
   pdf_document: default
   word_document: default
 bibliography: paper.bib
-tag:
+tags:
 - dendrogram
 - mash
 - sketch
