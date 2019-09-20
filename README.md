@@ -117,7 +117,7 @@ Installing from CPAN installs the latest stable version of Mashtree.  This metho
 
 ### Alternate method of installing from CPAN
 
-    $ cpan # initiates the CPAN command line prompt
+    $ perl -MCPAN -e shell # initiates the CPAN command line prompt
     cpan[1]> install Mashtree
     cpan[2]> exit
     $ export PERL5LIB=$PERL5LIB:$HOME/lib/perl5
