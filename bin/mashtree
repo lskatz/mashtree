@@ -54,7 +54,10 @@ sub main{
     $$settings{$_}=lc($$settings{$_});
   }
 
-  die usage() if($$settings{help});
+  if($$settings{help}){
+    print usage();
+    return 0;
+  }
   if($$settings{version}){
     print "Mashtree $MASHTREE_VERSION\n";
     return 0;
