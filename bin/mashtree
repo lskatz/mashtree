@@ -10,6 +10,7 @@ use Getopt::Long;
 use File::Temp qw/tempdir tempfile/;
 use File::Basename qw/basename dirname fileparse/;
 use File::Copy qw/copy/;
+use File::Which qw/which/;
 use POSIX qw/floor/;
 use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
@@ -73,9 +74,18 @@ sub main{
 
   # Check for prereq executables.
   for my $exe(qw(mash quicktree)){
-    system("$exe -h > /dev/null 2>&1");
-    die "ERROR: could not find $exe in your PATH" if $?;
+    if(!which($exe)){
+      die "ERROR: could not find $exe in your PATH";
+    }
   }
+
+  # Check mash version
+  my $mashVersion = `mash --version`;
+  die "ERROR running mash: $!" if $?;
+  chomp($mashVersion);
+  $mashVersion=~s/\..*//;
+  die "ERROR: need mash version > 2" if($mashVersion < 2);
+  logmsg "Found mash version $mashVersion - ".which('mash');
 
   # Distributed cpus if we have few genomes but high numcpus
   $$settings{cpus_per_mash}=floor($$settings{numcpus}/@reads);
