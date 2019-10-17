@@ -85,55 +85,17 @@ with a random seed.
 Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
 `--help` for additional information.
 
-## Requirements
-
-* Mash >= v2.0
-* SQLite3
-* Perl 
-  * multithreading 
-  * BioPerl library
-  * `DBD::SQLite`
-* Quicktree
-
 ## Installation
 
-### Installation from Git
-
-After downloading the latest release, go into the directory and run `make`
-
-    $ cd mashtree
-    $ perl Makefile.PL 
-    $ make test
-
-Add `mashtree/bin` to `PATH` and you're good to go!
-
-### Installation from CPAN
-
-Installing from CPAN installs the latest stable version of Mashtree.  This method _should_ add the Mashtree perl modules to the correct place in your home directory and _should_ add the executables to your local bin directory.  However, I am new to CPAN, so please give me feedback via the issues tab if this is not correct.
-
-    $ cpanm -L ~ Mashtree
-    $ export PERL5LIB=$PERL5LIB:$HOME/lib/perl5
-    $ mashtree --help # verify it shows usage and not an error
-
-### Alternate method of installing from CPAN
-
-    $ perl -MCPAN -e shell # initiates the CPAN command line prompt
-    cpan[1]> install Mashtree
-    cpan[2]> exit
-    $ export PERL5LIB=$PERL5LIB:$HOME/lib/perl5
-    $ mashtree --help # verify it shows usage and not an error
-
-### Uninstallation from CPAN
-
-I'm not sure _why_ you'd want to uninstall Mashtree but here is how you would clean it up.
-
-    $ cpanm --uninstall Mashtree --local-lib=$HOME
+*Please see [INSTALL.md](docs/INSTALL.md)*
 
 ## Further documentation
 
 For more information and help please see the [docs folder](docs/)
 
 For more information on plugins, see the [plugins folder](plugins). (in development)
+
+For more information on contributions, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## References
 
