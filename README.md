@@ -84,7 +84,7 @@ with a random seed.
 
 ## Installation
 
-*Please see [INSTALL.md](docs/INSTALL.md)*
+**Please see [INSTALL.md](docs/INSTALL.md)**
 
 ## Further documentation
 

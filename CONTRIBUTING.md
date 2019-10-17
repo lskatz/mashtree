@@ -4,7 +4,7 @@
 
 * Make sure you have a GitHub account
 * Make sure you have a travis-ci account
-* *Add an issue to the github site*. Discuss the problem you are fixing with the maintainer.
+* **Add an issue to the github site**. Discuss the problem you are fixing with the maintainer.
   * Has the issue already been discussed on the GitHub issues page?
   * Be detailed and focused
 
