@@ -2,7 +2,7 @@
 
 Create a tree using Mash distances.
 
-For simple usage, see `mashtree`.  For advanced options, look at `mashtree_wrapper.pl`.
+For simple usage, see `mashtree --help`. For confidence values, run either with `--help`: `mashtree_bootstrap.pl` or `mashtree_jackknife.pl`.
 
 ## Two modes: fast or accurate
 
@@ -81,9 +81,6 @@ with a random seed.
     --kmerlength         21
     --sketch-size        10000
 
-
-Also see `mashtree_wrapper.pl` for advanced usage. Run either script with
-`--help` for additional information.
 
 ## Installation
 
