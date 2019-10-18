@@ -7,10 +7,10 @@ authors:
 - affiliation: 1
   name: Taylor Griswold
 - affiliation: 3
-  name: Shatavia Morrison
+  name: Shatavia S. Morrison
   orcid: 0000-0002-4658-5951
 - affiliation: 3
-  name: Jason Caravas
+  name: Jason A. Caravas
   orcid: 0000-0001-9111-406X
 - affiliation: 2
   name: Shaokang Zhang
