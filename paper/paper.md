@@ -54,22 +54,19 @@ Genomes are sequenced, shared publicly, and subsequently analyzed for phylogenet
 If two genomes of epidemiological interest are found to be related, further investigation might be prompted.
 However, comparing the multitudes of genomes for phylogenetic relatedness is computationally expensive and, with large numbers, laborious.
 
-Consequently, there are many strategies to reduce the complexity of the data for downstream analysis.
-One strategy is to create a fast and accurate *de novo* assembly with software such as SKESA [@Souvorov:2018].
-Analyses on assemblies are much faster than on raw reads.
-From there, one fast but accurate analysis includes generating multilocus sequence type (MLST) profiles.
-Whole-genome MLST (wgMLST) has been shown to be fast and effective in many instances [@Moura:2017;@Maiden:2013; @Alikhan:2018;@NCBI_Pathogens].
+Consequently, there are many strategies to reduce the complexity of the data for downstream analysis,
+especially using nucleotides of length _k_ (kmers).
 
-Yet another classic strategy is reducing each genome to split kmers. With split kmer analysis, kmers on both sides of a variable site are recorded, and the variable nucleotide is identified.
-When comparing two or more genomes, the variable sites are compared. Split kmers have been implemented in many software packages including KSNP and SKA [@Gardner:2015; @Harris:2018].
+One major kmer strategy is to reduce each genome to split kmers. With split kmer analysis, kmers on both sides of a variable site are recorded, and the variable nucleotide is identified.
+When comparing two or more genomes, the variable sites are compared. Split kmers have been implemented in software packages such as KSNP and SKA [@Gardner:2015; @Harris:2018].
 
-Several bioinformatics applications have been released which utilize the kmer-based strategy to convert next generation sequencing data into manageable datasets, usually called sketches [@Ondov:2016; @Baker:2019; @Zhao:2018].
-Most notably, an algorithm called min-hash was implemented in the Mash package [@Ondov:2016].  In the min-hash algorithm, all nucleotides of length _k_ (kmers) are recorded and transformed into integers using an algorithm called hashing.  These hashed kmers are sorted and only the first several kmers are retained.  The kmers that appear at the top of the sorted list are collectively called the sketch.  Sketches are a representation of an organism's genome, and comparing multiple sketches can be used to estimate relatedness.
+Another major kmer strategy is to convert genomic data into manageable datasets, usually called sketches [@Ondov:2016; @Baker:2019; @Zhao:2018].
+Most notably, an algorithm called min-hash was implemented in the Mash package [@Ondov:2016].  In the min-hash algorithm, all kmers are recorded and transformed into integers using hashing and a Bloom filter [@bloom:1970].  These hashed kmers are sorted and only the first several kmers are retained.  The kmers that appear at the top of the sorted list are collectively called the sketch.  Comparing multiple sketches can be used to estimate relatedness.
 In other words, two genomes that have been sketched with the min-hash algorithm can be compared by counting how many hashed kmers they have in common. 
 
-A dendrogram can be calculated from pairwise genome distances by several algorithms [@Kuhner:1994]. One widely used algorithm is neighbor-joining (NJ) [@Saitou:1987].  The NJ algorithm reads a matrix of pairwise genomic distances. Each genome starts as a leaf node in a star-like tree.  In each iteration of NJ, the most related genomes or nodes (neighbors) are identified by seeking the lowest distance value in the matrix. Neighbors are given a common node on the growing tree.  Then, new distances are calculated between all nodes and the new node.  The product of the NJ algorithm is a binary tree, where each node except the root has one parent node and zero or two children.
-
-Because min-hash creates distances between any two genomes and NJ uses distances to create trees, min-hash values can be used to rapidly cluster genomes into trees.  We implemented this idea in software called Mashtree, which quickly and efficiently generates large trees that would be computationally intensive using other methods.
+Because min-hash creates distances between any two genomes,
+min-hash values can be used to rapidly cluster genomes into trees using the neighbor-joining algorithm [@Saitou:1987].
+We implemented this idea in software called Mashtree, which quickly and efficiently generates large trees that would be too computationally intensive using other methods.
 
 # Implementation
 
