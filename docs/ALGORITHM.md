@@ -30,12 +30,15 @@ When the distances are recorded in the replicate's pairwise distance matrix, the
 # Figures
 
 ![Figure 1](../paper/Mashtree_workflow.png)  
+
 **Figure 1.** The Mashtree workflow.  Step 1) Sketch genomes with Mash. In this schematic, there is a green circle representing each genome in the analysis.  Filled-in brown circles indicate the presence of a kmer.  Missing circles represent true absence.  After hashing with a sketch size of six (after the arrow), some kmers are not represented in the Mash sketch either because they are not present in the original genome or because only a finite number of kmers are sketched (e.g., six in this example).  Henceforth, truly missing hashes or hashes not included in the Mash sketch are represented by empty circles.  Step 2) Calculate distances with `Mash dist`.  Distances in the figure are represented by Jaccard distances, which are calculated as the intersection divided by the union.  In this example, the genomes are separated by Jaccard distances of 5/9, 4/9, and 3/9.  These jaccard distances are internally transformed into Mash distances [@Ondov:2016].  Step 3) Create dendrogram with Quicktree using the Mash distance matrix.
 
 ![Figure 2](../paper/Bootstrap_workflow.png)  
+
 **Figure 2.** The Mashtree bootstrap workflow.  Step 1) Generate a tree with the normal workflow as in Figure 1. This is the main tree.  Step 2) Run the normal workflow once per replicate but with a different random seed. In this example, the top right replicate differs from the main tree.  All ten of these trees are the bootstrap tree replicates.  Step 3) For each parent node in the main tree, quantify how many bootstrap tree replicates have the same node with the same children. Record that percentage next to each parent node. This percentage quantifies how confident the Mashtree cluster is, controlling for the random seed in the Mash program.
 
 ![Figure 3](../paper/Jackknife_workflow.png)  
+
 **FIgure 3.** The Mashtree jackknife workflow.  Step 1) Generate a tree with the normal workflow as in Figure 1. This is the main tree.  Step 2) For each replicate, sample the half hashes without replacement for each query genome. Recalculate the Mash distance between the query genome and all other genomes, reducing the denominator to one half, rounding up, to reflect the smaller pool of hashes.  After all genomes have been selected for query genomes, average the distances to create a new distance matrix.  Create the dendrogram from the new distance matrix.  For brevity, only one detailed replicate is shown.  Step 3) For each replication, calculate the new tree from the new distance matrix. In this example, the top right replication differs from the main tree. All ten of these trees are the jack knife tree replicates.  Step 4) For each parent node in the main tree, quantify how many jack knife tree replicates have the same node with the same children. Record that percentage next to each parent node.  This percentage quantifies how confident Mashtree is at clustering, controlling for stochasticity in hashes.
 
 
