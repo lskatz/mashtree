@@ -14,6 +14,8 @@ above file types.  You can compress with gz, bz2, or zip.
 **Output files**: Newick (.dnd).  If `--outmatrix` is supplied, then
 a distance matrix too.
 
+See the documentation on [the algorithms](docs/ALGORITHM.md) for more information.
+
 ### Faster
 
     mashtree --numcpus 12 *.fastq.gz [*.fasta] > mashtree.dnd
