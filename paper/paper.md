@@ -20,7 +20,7 @@ authors:
   orcid: 0000-0002-4086-1580
 - affiliation: 2
   name: Xiangyu Deng
-- affiliation: 2
+- affiliation: 1
   name: Heather A. Carleton
 date: "11 September 2019"
 output:
@@ -77,7 +77,7 @@ Mashtree builds on two major algorithms that are already implemented in other so
 ## Confidence values
 
 Although Mashtree does not infer phylogeny, we have borrowed the ideas behind phylogenetic confidence values to yield confidence values for each parent node in the tree.
-There are two resampling methods implemented in Mashtree to assign support values to infernal nodes, bootstrapping and jackknifing.
+There are two resampling methods implemented in Mashtree to assign support values to internal nodes: bootstrapping and jackknifing.
 Initially, both methods create a tree as depicted in Figure 1.
 Then, confidence values can be calculated for the tree using either the bootstrapping approach or the jack knifing approach (Figures 2 and 3).
 
