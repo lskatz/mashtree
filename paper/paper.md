@@ -56,15 +56,12 @@ However, comparing the multitudes of genomes for phylogenetic relatedness is com
 
 Consequently, there are many strategies to reduce the complexity of the data for downstream analysis.
 One strategy is to create a fast and accurate *de novo* assembly with software such as SKESA [@Souvorov:2018].
-The sizes of the resulting assemblies are usually in the megabases, whereas the raw data are usually in the hundreds of megabases. Therefore, downstream analyses on the compact assemblies can be much faster.
+Analyses on assemblies are much faster than on raw reads.
+From there, one fast but accurate analysis includes generating multilocus sequence type (MLST) profiles.
+Whole-genome MLST (wgMLST) has been shown to be fast and effective in many instances [@Moura:2017;@Maiden:2013; @Alikhan:2018;@NCBI_Pathogens].
 
-One strategy is to create multilocus sequence type (MLST) profiles from each genome to be analyzed.  In MLST analysis, only the allelic variants are analyzed, either via reference-based mapping or via *de novo* genome assemblies. This reduction of data from raw sequence reads or assemblies, down to a subset of seven to thousands of genes, reduces the complexity of the analysis from millions of base pairs to a subset of genes and their allele calls [@Moura:2017;@Maiden:2013; @Alikhan:2018]. The allele calls can then be used to compute a distance matrix rapidly.
-
-Another fast downstream analysis that is routinely performed is on the NCBI Pathogens site, where the SKESA assemblies are used to identify clusters of genomes in a whole-genome MLST (wgMLST) analysis.
-For each cluster of genomes as determined by wgMLST, single nucleotide polymorphisms (SNPs) are identified. These SNPs are used to inter a phylogenetic signal, and those results are displayed online [@NCBI_Pathogens].
-
-Yet another classic strategy is reducing each genome down to split kmers. With split kmer analysis, kmers on both sides of a variable site are recorded, and the variable nucleotide is identified. When comparing two or more genomes, the variable sites are compared. Split kmers have been implemented in many software packages including KSNP and SKA [@Gardner:2015; @Harris:2018].
-This strategy essentially eliminates the assembly steps required in a genome-wide approach and allows for comparative whole genome analysis based on short fragments, usually from 13 to 31 base pairs at a time.
+Yet another classic strategy is reducing each genome to split kmers. With split kmer analysis, kmers on both sides of a variable site are recorded, and the variable nucleotide is identified.
+When comparing two or more genomes, the variable sites are compared. Split kmers have been implemented in many software packages including KSNP and SKA [@Gardner:2015; @Harris:2018].
 
 Several bioinformatics applications have been released which utilize the kmer-based strategy to convert next generation sequencing data into manageable datasets, usually called sketches [@Ondov:2016; @Baker:2019; @Zhao:2018].
 Most notably, an algorithm called min-hash was implemented in the Mash package [@Ondov:2016].  In the min-hash algorithm, all nucleotides of length _k_ (kmers) are recorded and transformed into integers using an algorithm called hashing.  These hashed kmers are sorted and only the first several kmers are retained.  The kmers that appear at the top of the sorted list are collectively called the sketch.  Sketches are a representation of an organism's genome, and comparing multiple sketches can be used to estimate relatedness.
