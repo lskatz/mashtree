@@ -53,7 +53,6 @@ These genomes have been generated for impactful initiatives, especially in the f
 Genomes are sequenced, shared publicly, and subsequently analyzed for phylogenetic relatedness.
 If two genomes of epidemiological interest are found to be related, further investigation might be prompted.
 However, comparing the multitudes of genomes for phylogenetic relatedness is computationally expensive and, with large numbers, laborious.
-
 Consequently, there are many strategies to reduce the complexity of the data for downstream analysis,
 especially using nucleotides of length _k_ (kmers).
 
@@ -79,7 +78,7 @@ Mashtree builds on two major algorithms that are already implemented in other so
 Although Mashtree does not infer phylogeny, we have borrowed the ideas behind phylogenetic confidence values to yield confidence values for each parent node in the tree.
 There are two resampling methods implemented in Mashtree to assign support values to internal nodes: bootstrapping and jackknifing.
 Initially, both methods create a tree as depicted in Figure 1.
-Then, confidence values can be calculated for the tree using either the bootstrapping approach or the jack knifing approach (Figures 2 and 3).
+Then, confidence values can be calculated for the tree using either the bootstrapping approach or the jackknifing approach (Figures 2 and 3).
 
 ## Other features
 
