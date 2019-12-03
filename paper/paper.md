@@ -54,7 +54,7 @@ Genomes are sequenced, shared publicly, and subsequently analyzed for phylogenet
 If two genomes of epidemiological interest are found to be related, further investigation might be prompted.
 However, comparing the multitudes of genomes for phylogenetic relatedness is computationally expensive and, with large numbers, laborious.
 Consequently, there are many strategies to reduce the complexity of the data for downstream analysis,
-especially using nucleotides of length _k_ (kmers).
+especially using nucleotide stretches of length _k_ (kmers).
 
 One major kmer strategy is to reduce each genome to split kmers. With split kmer analysis, kmers on both sides of a variable site are recorded, and the variable nucleotide is identified.
 When comparing two or more genomes, the variable sites are compared. Split kmers have been implemented in software packages such as KSNP and SKA [@Gardner:2015; @Harris:2018].
