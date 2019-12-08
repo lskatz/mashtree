@@ -46,6 +46,7 @@ WriteMakefile1(
     'threads::shared'=> 0,
     'Thread::Queue'  => 0,
     # Not core (I think?)
+    'File::Which'    => 0,
     'DBI'            => 0,
     'DBD::SQLite'    => 0,
     'Bio::Matrix::IO'=> 0,
@@ -53,7 +54,8 @@ WriteMakefile1(
     'Bio::Tree::Statistics'=> 0,
     'Bio::Sketch::Mash'    => 0, # ensures that Mash gets loaded
     #'Bio::Kmer'      => 0.19,
-    'Graph::Dijkstra'=> 0,
+    #'Graph::Dijkstra'=> 0,
+    #'Readonly'       => 0,
     'JSON'           => '2.90',
   },
   BUILD_REQUIRES => {

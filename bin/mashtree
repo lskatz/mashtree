@@ -10,7 +10,6 @@ use Getopt::Long;
 use File::Temp qw/tempdir tempfile/;
 use File::Basename qw/basename dirname fileparse/;
 use File::Copy qw/copy/;
-use File::Which qw/which/;
 use POSIX qw/floor/;
 use List::Util qw/min max/;
 use Scalar::Util qw/looks_like_number/;
@@ -20,6 +19,8 @@ use threads::shared;
 
 use FindBin;
 use lib "$FindBin::RealBin/../lib";
+use lib "$FindBin::RealBin/../lib/perl5";
+use File::Which qw/which/;
 use Mashtree qw/logmsg @fastqExt @fastaExt @mshExt @richseqExt _truncateFilename createTreeFromPhylip $MASHTREE_VERSION/;
 use Mashtree::Db;
 use Bio::Tree::DistanceFactory;
