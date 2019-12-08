@@ -21,6 +21,7 @@ before_install:
   - git clone https://github.com/khowe/quicktree.git
   - make -C quicktree
 install:
+  - cpanm -v Bio::Tree::Statistics Bio::Matrix::IO Bio::Tree::DistanceFactory
   - export PATH=$PATH:$HOME/bin
   - cpanm --installdeps --notest .
 before_script:
