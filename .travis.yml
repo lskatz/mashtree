@@ -31,7 +31,9 @@ before_script:
   - PATH=$PATH:./mash-Linux64-v2.2
   - export PATH=$PATH:./quicktree
 script:
-  - cpanm --notest --force -v Bio::Tree::Statistics Bio::Matrix::IO Bio::Tree::DistanceFactory
+  - cpanm -l . --notest --force -v Bio::Tree::Statistics Bio::Matrix::IO Bio::Tree::DistanceFactory
+  - find . -type f -name IO.pm || true
+  - find . -type f -name DistanceFactory.pm || true
   - cpanm --installdeps . --notest .
   - perl Makefile.PL 
   - perl bin/mashtree -h 2>&1 | grep .
