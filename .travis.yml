@@ -2,11 +2,14 @@ language: perl
 perl:
   - "5.24-shrplib"
 env: PERL_CPANM_OPT="--notest --force --skip-satisfied"
+apt:
+  packages:
+    - bioperl
 before_install:
   - sudo apt-get update
   - sudo apt-get install sqlite3 libsqlite3-dev
   # bootstrap modules needed to manipulate dist
-  - "yes no | cpanm --force --notest Bio::Perl"
+  #- "yes no | cpanm --force --notest Bio::Perl"
   - cpanm -v -L . DBD::SQLite
   #- "yes no | cpanm --force --notest DBI"
   #- wget https://github.com/marbl/Mash/releases/download/v1.1.1/mash-Linux64-v1.1.1.tar.gz
