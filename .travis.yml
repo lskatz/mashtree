@@ -37,6 +37,7 @@ script:
   #- cpanm -l . --notest --force -v Bio::Tree::Statistics Bio::Matrix::IO Bio::Tree::DistanceFactory
   #- find . -type f -name IO.pm || true
   #- find . -type f -name DistanceFactory.pm || true
+  - cpanm -l CDRAUG/BioPerl-1.7.4.tar.gz
   - cpanm -L --installdeps --notest .
   - perl Makefile.PL 
   - perl bin/mashtree -h 2>&1 | grep .
