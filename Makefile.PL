@@ -16,14 +16,17 @@ my $preop = 'true;';
 # Execute something before `make`
 my $preBuild=
   'rm -f bin/ROSS-v0.3.tar.gz;' .
+  'if [ ! -e ./bin/ROSS-0.3/LICENSE ]; then ' .
   'wget https://github.com/lskatz/ROSS/archive/v0.3.tar.gz -O bin/ROSS-v0.3.tar.gz;'.
-  'tar -zxvf ./bin/ROSS-v0.3.tar.gz --directory ./bin;';
+  'tar -zxvf ./bin/ROSS-v0.3.tar.gz --directory ./bin;'.
+  'fi;' .
+  '';
 
 WriteMakefile1(
   NAME         => 'Mashtree',
   VERSION_FROM => 'lib/Mashtree.pm',
   #ABSTRACT_FROM => 'lib/Mashtree.pm',
-  ABSTRACT_FROM => 'README.md',
+  #ABSTRACT_FROM => 'README.md',
   AUTHOR => q{Lee S. Katz <gzu2@cdc.gov>},
   EXE_FILES    => [
     "bin/mashtree",
@@ -49,9 +52,10 @@ WriteMakefile1(
     'File::Which'    => 0,
     'DBI'            => 0,
     'DBD::SQLite'    => 0,
-    'Bio::Matrix::IO'=> '== 1.7.3',
-    'Bio::Tree::Statistics'=> '== 1.7.3',
-    'Bio::Tree::DistanceFactory'=> '== 1.7.3',
+    'Bio::Perl'      => 1,
+    'Bio::Matrix::IO'=> 0,
+    'Bio::Tree::Statistics'=> 0,
+    'Bio::Tree::DistanceFactory'=> 0,
     'Bio::Sketch::Mash'    => 0, # ensures that Mash gets loaded
     #'Bio::Kmer'      => 0.19,
     #'Graph::Dijkstra'=> 0,

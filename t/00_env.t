@@ -17,15 +17,20 @@ is $mash_is_missing, 0, "Found Mash in PATH" or
 END{unlink("mash.log");}
 
 # Is Quicktree installed?
-my $quicktree_is_missing = system("quicktree > /dev/null 2>&1");
-   $quicktree_is_missing = $quicktree_is_missing % 256;
-is $quicktree_is_missing, 0, "Found quicktree in PATH" or 
-  diag("The executable quicktree was not found in PATH.");
+my $quicktree_is_missing = system("quicktree 2>&1 | grep -C 50 -i quicktree > mash.log 2>&1"); # overwrite the mash log
+my $quicktree_is_missing_mod = $quicktree_is_missing >> 8; # shift the exit code down 8 bits
+is $quicktree_is_missing_mod, 0, "Found quicktree in PATH" or 
+  diag("The executable quicktree was not found in PATH: ".`cat mash.log`);
 
 # Test out mashtree exe
 my $version = `mashtree --version`;
-my $exit_code = $? % 256;
+my $exit_code = $? >> 8;
 is $exit_code, 0, "Mashtree --version exit code: $exit_code";
+
+# If mash, quicktree, or mashtree gave an exit code, bail out of the whole test
+if($mash_is_missing || $quicktree_is_missing || $exit_code){
+  BAIL_OUT("Prerequisite software was not found");
+}
 
 $version =~ s/Mashtree\s*//; # Mashtree trim
 $version =~ s/^\s+|\s+$//;   # whitespace trim
