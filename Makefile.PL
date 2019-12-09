@@ -52,11 +52,10 @@ WriteMakefile1(
     'File::Which'    => 0,
     'DBI'            => 0,
     'DBD::SQLite'    => 0,
-    'Bio::Perl'      => 1,
-    'Bio::Root::Root'=> 0, # Travis-CI is complaining that at least this is not loading???
-    'Bio::Matrix::IO'=> 0,
-    'Bio::Tree::Statistics'=> 0,
-    'Bio::Tree::DistanceFactory'=> 0,
+    'Bio::Perl'      => '!= 1.7.7',
+    #'Bio::Matrix::IO'=> 0,
+    #'Bio::Tree::Statistics'=> 0,
+    #'Bio::Tree::DistanceFactory'=> 0,
     'Bio::Sketch::Mash'    => 0, # ensures that Mash gets loaded
     #'Bio::Kmer'      => 0.19,
     #'Graph::Dijkstra'=> 0,
