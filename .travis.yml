@@ -2,15 +2,16 @@ language: perl
 perl:
   - "5.24-shrplib"
 env: PERL_CPANM_OPT="--notest --force --skip-satisfied"
-apt:
-  update: true
-  packages:
-    #- bioperl
-    - libgd-dev
-    - sqlite3
-    - libsqlite3-dev
-    - libberkeleydb-perl
-    - libcdb-file-perl
+addons:
+  apt:
+    update: true
+    packages:
+      - bioperl
+      - libgd-dev
+      - sqlite3
+      - libsqlite3-dev
+      - libberkeleydb-perl
+      - libcdb-file-perl
 before_install:
   - cpanm --local-lib=~/perl5 local::lib && eval $(perl -I ~/perl5/lib/perl5/ -Mlocal::lib)
   #- sudo apt-get update -y
@@ -38,8 +39,8 @@ script:
   #- cpanm -l . --notest --force -v Bio::Tree::Statistics Bio::Matrix::IO Bio::Tree::DistanceFactory
   #- find . -type f -name IO.pm || true
   #- find . -type f -name DistanceFactory.pm || true
-  - cpanm --notest --force -l . GD
-  - cpanm --notest --force -l . CDRAUG/BioPerl-1.7.4.tar.gz
+  #- cpanm --notest --force --verbose -l . GD
+  #- cpanm --notest --force -l . CDRAUG/BioPerl-1.7.4.tar.gz
   - cpanm --installdeps --notest .
   - perl Makefile.PL 
   - perl bin/mashtree -h 2>&1 | grep .
