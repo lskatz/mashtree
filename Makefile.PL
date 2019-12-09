@@ -53,6 +53,7 @@ WriteMakefile1(
     'DBI'            => 0,
     'DBD::SQLite'    => 0,
     'Bio::Perl'      => 1,
+    'Bio::Root::Root'=> 0, # Travis-CI is complaining that at least this is not loading???
     'Bio::Matrix::IO'=> 0,
     'Bio::Tree::Statistics'=> 0,
     'Bio::Tree::DistanceFactory'=> 0,
