@@ -1,6 +1,6 @@
 language: perl
 perl:
-  - "5.24-shrplib"
+  - "5.30-shrplib"
 env: PERL_CPANM_OPT="--notest --force --skip-satisfied"
 addons:
   apt:
