@@ -16,7 +16,7 @@ before_install:
   #- sudo apt-get install bioperl sqlite3 libsqlite3-dev
   # bootstrap modules needed to manipulate dist
   #- "yes no | cpanm --force --notest Bio::Perl"
-  - cpanm -v -L . DBD::SQLite
+  #- cpanm -v -L . DBD::SQLite
   #- "yes no | cpanm --force --notest DBI"
   #- wget https://github.com/marbl/Mash/releases/download/v1.1.1/mash-Linux64-v1.1.1.tar.gz
   #- tar zxvf mash-Linux64-v1.1.1.tar.gz
@@ -27,8 +27,10 @@ before_install:
 install:
   - export PATH=$PATH:$HOME/bin
   - export PERL5LIB=$PERL5LIB:$(pwd)/lib/perl5
+  - export PERL5LIB=$PERL5LIB:$HOME/perl5:$HOME/perl5/lib/perl5
 before_script:
   - ls -F # if this test fails, just be sure what the directory is
+  - pwd; pwd -P
   - PATH=$PATH:./mash-Linux64-v2.2
   - export PATH=$PATH:./quicktree
 script:
