@@ -37,7 +37,7 @@ script:
   #- cpanm -l . --notest --force -v Bio::Tree::Statistics Bio::Matrix::IO Bio::Tree::DistanceFactory
   #- find . -type f -name IO.pm || true
   #- find . -type f -name DistanceFactory.pm || true
-  - cpanm --installdeps --notest .
+  - cpanm -L --installdeps --notest .
   - perl Makefile.PL 
   - perl bin/mashtree -h 2>&1 | grep .
   - perl bin/mashtree --help 2>&1 | grep .
