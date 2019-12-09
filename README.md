@@ -2,7 +2,11 @@
 
 Create a tree using Mash distances.
 
-For simple usage, see `mashtree --help`. For confidence values, run either with `--help`: `mashtree_bootstrap.pl` or `mashtree_jackknife.pl`.
+For simple usage, see `mashtree --help`. This is an example command:
+
+    mashtree *.fastq.gz > tree.dnd
+    
+For confidence values, run either with `--help`: `mashtree_bootstrap.pl` or `mashtree_jackknife.pl`.
 
 ## Two modes: fast or accurate
 
