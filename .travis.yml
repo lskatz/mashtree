@@ -14,10 +14,8 @@ addons:
       - libcdb-file-perl
 before_install:
   - cpanm --local-lib=~/perl5 local::lib && eval $(perl -I ~/perl5/lib/perl5/ -Mlocal::lib)
-  #- sudo apt-get update -y
-  #- sudo apt-get install bioperl sqlite3 libsqlite3-dev
   # bootstrap modules needed to manipulate dist
-  #- "yes no | cpanm --force --notest Bio::Perl"
+  - "yes no | cpanm --force --notest Bio::Perl"
   #- cpanm -v -L . DBD::SQLite
   #- "yes no | cpanm --force --notest DBI"
   #- wget https://github.com/marbl/Mash/releases/download/v1.1.1/mash-Linux64-v1.1.1.tar.gz
@@ -36,8 +34,8 @@ before_script:
   - PATH=$PATH:./mash-Linux64-v2.2
   - export PATH=$PATH:./quicktree
 script:
-  #- cpanm -l . --notest --force -v Bio::Tree::Statistics Bio::Matrix::IO Bio::Tree::DistanceFactory
-  #- find . -type f -name IO.pm || true
+  - cpanm -l . --notest --force -v Bio::Tree::Statistics Bio::Matrix::IO Bio::Tree::DistanceFactory
+  - find . -type f -name Statistics.pm
   #- find . -type f -name DistanceFactory.pm || true
   #- cpanm --notest --force --verbose -l . GD
   #- cpanm --notest --force -l . CDRAUG/BioPerl-1.7.4.tar.gz
