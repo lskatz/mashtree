@@ -107,9 +107,9 @@ For more information on contributions, please see [CONTRIBUTING.md](CONTRIBUTING
 
 ## Citation
 
-### In review, JOSS
+### JOSS
 
-Katz, L. S., Griswold, T., Morrison, S., Caravas, J., Zhang, S., den Bakker, H.C., Deng, X., and Carleton, H. A., "Mashtree: a rapid comparison of whole genome sequence files."  Journal of Open Source Software, in review.  https://github.com/openjournals/joss-reviews/issues/1762#issuecomment-543736907
+Katz, L. S., Griswold, T., Morrison, S., Caravas, J., Zhang, S., den Bakker, H.C., Deng, X., and Carleton, H. A., (2019). Mashtree: a rapid comparison of whole genome sequence files. Journal of Open Source Software, 4(44), 1762, https://doi.org/10.21105/joss.01762
 
 ### Poster
 
