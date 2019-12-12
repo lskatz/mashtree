@@ -30,7 +30,7 @@ Some system packages are needed.  On Ubuntu, this is how you might install these
 
 There are some perl packages too and so this is how you would install those on most Linux OSs:
 
-    cpanm -l ~ --notest BioPerl Bio::Sketch::Mash DBD::SQLite DBI Graph::Dijkstra
+    cpanm -l ~ --notest BioPerl Bio::Sketch::Mash DBD::SQLite DBI 
 
 #### Quicktree
 
