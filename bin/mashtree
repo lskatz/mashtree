@@ -65,7 +65,7 @@ sub main{
     return 0;
   }
   if($$settings{citation}){
-    print "Katz, L. S., Griswold, T., & Carleton, H. A. (2017, October 8-11). Generating WGS Trees with Mashtree. Poster presented at the American Society for Microbiology Conference on Rapid Applied Microbial Next-Generation Sequencing and Bioinformatic Pipelines, Washington, DC.\n";
+    print "Katz, L. S., Griswold, T., Morrison, S., Caravas, J., Zhang, S., den Bakker, H.C., Deng, X., and Carleton, H. A., (2019). Mashtree: a rapid comparison of whole genome sequence files. Journal of Open Source Software, 4(44), 1762, https://doi.org/10.21105/joss.01762\n";
     return 0;
   }
 
