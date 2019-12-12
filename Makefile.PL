@@ -52,7 +52,7 @@ WriteMakefile1(
     'File::Which'    => 0,
     'DBI'            => 0,
     'DBD::SQLite'    => 0,
-    'Bio::Perl'      => 1,
+    'Bio::Perl'      => 0,
     #'Bio::Matrix::IO'=> 0,
     #'Bio::Tree::Statistics'=> 0,
     #'Bio::Tree::DistanceFactory'=> 0,
