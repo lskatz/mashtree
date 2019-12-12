@@ -4,7 +4,6 @@ bin/mashtree_init.pl
 bin/mashtree_jackknife.pl
 bin/mashtree_bootstrap.pl
 bin/min_abundance_finder.pl
-bin/mashtree_checkReads.sh
 CHANGES
 docs/SQL.md
 lib/Bio/Kmer.pm
