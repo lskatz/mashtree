@@ -116,6 +116,10 @@ sub main{
     # on whether it is a file of files.  Otherwise do not check
     # because of disk IO speeds.
     if($$settings{'file-of-files'}){
+      # If we have file-of-files in play, don't try to optimize
+      # too early.
+      $$settings{cpus_per_mash}=1;
+      $$settings{numthreads}=$$settings{numcpus};
       open(my $possibleFileOfFiles, "<", $reads) or die "ERROR: could not read $reads: $!";
       my $firstfile = <$possibleFileOfFiles>;
       $firstfile=~s/^\s+|\s+$//g; #whitespace trim
