@@ -11,7 +11,7 @@ use Bio::TreeIO;
 use IO::String;
 use Scalar::Util qw/looks_like_number/;
 
-use Test::More tests => 5;
+use Test::More tests => 6;
 
 use_ok 'Mashtree';
 use Mashtree;
@@ -27,6 +27,7 @@ END{
   rmtree("$RealBin/lambda/jackknife.tmp");
   unlink("$RealBin/lambda/jackknife.log");
 }
+
 # Test to see if the correct tree is made
 my $mashtree=`mashtree_jackknife.pl --tempdir $RealBin/lambda/jackknife.tmp --reps 100 --numcpus 2 $RealBin/lambda/*.fastq.gz 2>$RealBin/lambda/jackknife.log`;
 if($?){
@@ -79,3 +80,33 @@ subtest "Database of distances for rep1" => sub{
     }
   }
 };
+
+# Address the bug fix https://github.com/lskatz/mashtree/issues/51#issuecomment-604495598
+subtest "file-of-filenames" => sub{
+  plan tests=>2;
+
+  # Make the file of filenames
+  my $fofn = "$RealBin/lambda/lambda.fofn";
+  my @file = glob("$RealBin/lambda/*.fastq.gz");
+  open(my $fh, ">", $fofn) or die "ERROR: could not write to $fofn: $!";
+  for my $f(@file){
+    print $fh "$f\n";
+  }
+  close $fh;
+
+  my $mashtreeFofn = `mashtree_jackknife.pl --tempdir $RealBin/lambda/jackknife.tmp --reps 100 --numcpus 2 -- --file-of-files $fofn 2>$RealBin/lambda/jackknife.log`;
+  diag $mashtreeFofn;
+  
+  my $treeFh = IO::String->new($mashtree);
+  my $tree = Bio::TreeIO->new(-fh=>$treeFh, -format=>"newick")->next_tree;
+  $passed = is(ref($tree),"Bio::Tree::Tree","Produced a BioPerl tree object");
+  if(!$passed){
+    diag "Tree string produced was $mashtree";
+    BAIL_OUT("Tree object was not produced out of the tree string");
+  }
+
+  my @leaf = sort map{$_->id} grep{$_->is_Leaf} $tree->get_nodes;
+  is(scalar(@leaf), 4, "correct number of nodes");
+  diag "@leaf";
+};
+
