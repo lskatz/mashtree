@@ -5,6 +5,12 @@ use warnings;
 use Data::Dumper;
 use FindBin qw/$RealBin/;
 use lib "$RealBin/../lib";
+use lib "$RealBin/../lib/perl5";
+
+# Need to actually update env because
+# of the executables called later.
+$ENV{PERL5LIB}=$ENV{PERL5LIB}.":$RealBin/../lib/perl5";
+
 use File::Basename qw/dirname/;
 use File::Path qw/rmtree/;
 use Bio::TreeIO;

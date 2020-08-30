@@ -5,6 +5,10 @@ use 5.010;
  
 use ExtUtils::MakeMaker;
 
+use FindBin qw/$RealBin/;
+use lib "$RealBin/lib";
+use lib "$RealBin/lib/perl5";
+
 # Some help from
 # http://blogs.perl.org/users/michal_wojciechowski/2011/11/github-friendly-readme-files-with-extutils-makemaker-and-module-build.html
 my $preop = 'true;';
@@ -58,7 +62,7 @@ WriteMakefile1(
     'Bio::Tree::Statistics'=> 0,
     'Bio::Tree::DistanceFactory'=> 0,
     'Bio::Sketch::Mash'    => 0, # ensures that Mash gets loaded
-    #'Bio::Kmer'      => 0.19,
+    'Bio::Kmer'      => 0.26,
     #'Graph::Dijkstra'=> 0,
     #'Readonly'       => 0,
     'JSON'           => '2.90',

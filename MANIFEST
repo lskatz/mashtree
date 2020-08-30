@@ -6,7 +6,6 @@ bin/mashtree_bootstrap.pl
 bin/min_abundance_finder.pl
 CHANGES
 docs/SQL.md
-lib/Bio/Kmer.pm
 lib/Mashtree.pm
 lib/Mashtree/Db.pm
 lib/Mashtree/Mash.pm
