@@ -21,7 +21,7 @@ use FindBin;
 use lib "$FindBin::RealBin/../lib";
 use lib "$FindBin::RealBin/../lib/perl5";
 use File::Which qw/which/;
-use Mashtree qw/logmsg @fastqExt @fastaExt @mshExt @richseqExt _truncateFilename createTreeFromPhylip $MASHTREE_VERSION/;
+use Mashtree qw/logmsg @fastqExt @fastaExt @mshExt @richseqExt _truncateFilename sketchesToAlignment createTreeFromBinaryAlignment $MASHTREE_VERSION/;
 use Mashtree::Db;
 use Bio::Tree::DistanceFactory;
 use Bio::Matrix::IO;
@@ -74,11 +74,13 @@ sub main{
   die "need more arguments\n".usage() if(@reads < 1);
 
   # Check for prereq executables.
-  for my $exe(qw(mash quicktree)){
+  for my $exe(qw(mash)){
     if(!which($exe)){
       die "ERROR: could not find $exe in your PATH";
     }
   }
+  which("raxmlHPC") || which("raxmlHPC-PTHREADS")  
+    or die "ERROR: need raxml in your PATH";
 
   # Check mash version
   my $mashVersion = `mash --version`;
@@ -143,18 +145,20 @@ sub main{
 
   my $sketches=sketchAll(\@reads,"$$settings{tempdir}",$settings);
 
-  my $phylip = mashDistance($sketches,\@reads,$$settings{tempdir},$settings);
+  my $aln = sketchesToAlignment($sketches,"$$settings{tempdir}",$settings);
 
-  my $treeObj = createTreeFromPhylip($phylip,$$settings{tempdir},$settings);
+  my $tree = createTreeFromBinaryAlignment($aln,$$settings{tempdir}, $settings);
 
   # Write the tree
   if($$settings{outtree}){
-    open(my $treeFh, ">", $$settings{outtree}) or die "ERROR writing tree to $$settings{outtree}: $!";
-    print $treeFh $treeObj->as_text('newick');
-    close $treeFh
+    cp($tree, $$settings{outtree}) or die "ERROR: could not copy $tree => $$settings{outtree}: $!";
   } else {
-    print $treeObj->as_text('newick');
-    print "\n";
+    open(my $treeFh, $tree) or die "ERROR: could not read from $tree: $!";
+    while(<$treeFh>){
+      print;
+    }
+    close $treeFh;
+    print "\n"; # ensure a newline after the tree
   }
 
   return 0;

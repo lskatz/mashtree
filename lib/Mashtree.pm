@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use Exporter qw(import);
 use File::Basename qw/fileparse basename dirname/;
+use File::Which qw/which/;
 use Data::Dumper;
 use List::Util qw/shuffle/;
 use Scalar::Util qw/looks_like_number/;
@@ -14,9 +15,11 @@ use threads::shared;
 use lib dirname($INC{"Mashtree.pm"});
 use Bio::Matrix::IO;
 use Bio::TreeIO;
+use Bio::Sketch::Mash;
+use Bio::AlignIO;
 
 our @EXPORT_OK = qw(
-           logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames treeDist mashDist mashHashes raw_mash_distance raw_mash_distance_unequal_sizes
+           logmsg openFastq _truncateFilename distancesToPhylip createTreeFromPhylip sortNames treeDist mashDist mashHashes raw_mash_distance raw_mash_distance_unequal_sizes sketchesToAlignment createTreeFromBinaryAlignment
            @fastqExt @fastaExt @bamExt @vcfExt @richseqExt @mshExt
            $MASHTREE_VERSION
          );
@@ -26,7 +29,7 @@ local $0=basename $0;
 ######
 # CONSTANTS
 
-our $VERSION = "1.1.2";
+our $VERSION = "2.0";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
@@ -99,6 +102,68 @@ sub _truncateFilename{
     $name = basename($name,@mshExt,@fastqExt,@richseqExt,@fastaExt);
   }
   return $name;
+}
+
+# Read sketches and create an alignment in phylip format:
+# 1. Make a presence/absence perl hash of min-hashes
+# 2. Create a "sequence" for each sketch
+# 3. Create the MSA of these sequences
+# This function uses $settings with keys:
+#   presence: the nucleotide that stands for presence. Default: "1"
+#   absence:  the nucleotide that stands for absence.  Default: "0"
+#   format:   the format of the output alignment. Default: "phylip"
+sub sketchesToAlignment{
+  my($sketches, $outdir, $settings) = @_;
+
+  my $presence = $$settings{presence} || 1;
+  my $absence  = $$settings{absence}  || 0;
+  my $format   = $$settings{format}   || "phylip";
+
+  my $outfile = "$outdir/aln.$format";
+
+  ## Presence/absence of hashes
+  my %p; # presence/absence
+  for my $file(@$sketches){
+    my $msh = Bio::Sketch::Mash->new($file);
+    my $sketches=$$msh{sketches}[0]{hashes};
+    for my $s(@$sketches){
+      $p{$s}{$file}=1;
+    }
+  }
+  
+  ## Create pseudo-sequences
+  my %sampleSeq;
+  # Sort to help keep output stable
+  my @hashInt = sort{$a<=>$b} keys(%p);
+  for my $h(@hashInt){
+    for my $file(@$sketches){
+      # If the hash is present, then give the "present" nucleotide
+      if($p{$h}{$file}){
+        $sampleSeq{$file} .= $presence;
+      }
+      # If the hash is not present, then give the "absent" nucleotide
+      else{
+        $sampleSeq{$file} .= $absence;
+      }
+    }
+  }
+  
+  ## Make alignment to string
+  my $alnStr = "";
+  for my $file(@$sketches){
+    my $name = _truncateFilename($file, $settings);
+    $alnStr .= ">$name\n";
+    $alnStr .= $sampleSeq{$file}."\n";
+  }
+
+  ## Convert alignment to phylip
+  my $alnin = Bio::AlignIO->new(-string=>$alnStr, -format=>"fasta");
+  my $alnout= Bio::AlignIO->new(-file=>">".$outfile,-format=>$format);
+  while(my $aln = $alnin->next_aln){
+    $alnout->write_aln($aln);
+  }
+
+  return $outfile;
 }
 
 
@@ -185,6 +250,51 @@ sub sortNames{
     die "ERROR: I don't understand sort-order $$settings{'sort-order'}";
   }
   return @sorted;
+}
+
+# Create a tree from a binary alignment
+sub createTreeFromBinaryAlignment{
+  my($aln, $outdir, $settings) = @_;
+
+  my $outfile = "$outdir/tree.dnd";
+
+  my $raxml = which("raxmlHPC") || which("raxmlHPC-PTHREADS");
+  if(!$raxml){
+    die "ERROR: could not find raxml in your path.";
+  }
+
+  # Avoid raxml crashing because original files were there
+  for my $filename (glob("$outdir/RAxML*.raxml")){
+    unlink $filename;
+  }
+
+  # Run raxml from in the output directory
+  # -f a bootstrapping algorithm
+  # -s the alignment
+  # -n suffix for output files is raxml
+  # -T number of threads
+  # -p and -x are seeds
+  # -N 10 only ten bootstraps for fast analysis
+  # -m BINGAMMA binary gamma model
+  my $raxmllog = "$outdir/raxml.log";
+  logmsg "RAxML log will be in $raxmllog";
+  system("cd $outdir && $raxml -f a -s aln.phylip -n raxml -T $$settings{numcpus} -p $$settings{seed} -x $$settings{seed} -N 10 -m BINGAMMA > ".basename($raxmllog)." 2>&1");
+  if($?){
+    my $raxmlErr = $!;
+    open(my $logfh, $raxmllog) or logmsg "ERROR opening log file $raxmllog: $!";
+    while(<$logfh>){
+      print;
+    }
+    close $logfh;
+
+    die "ERROR running raxml: $raxmlErr" if $?;
+  }
+
+  # Since we're not too interested in bootstrapping here,
+  # just return the best tree.
+  link("$outdir/RAxML_bestTree.raxml", $outfile);
+
+  return $outfile;
 }
 
 # Create tree file with Quicktree but bioperl 
