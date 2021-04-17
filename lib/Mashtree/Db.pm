@@ -22,10 +22,18 @@ local $0=basename $0;
 # Properties of this object:
 #   dbFile
 #   dbh
+#   settings, a hashref with keys:
+#     significant_figures, how many sigfigs in branch lengths default:10
 sub new{
   my($class,$dbFile,$settings)=@_;
 
-  my $self={};
+  # How many significant digits to go into the branch
+  # lengths
+  $$settings{significant_figures} ||= 10;
+
+  my $self={
+    _significant_figures => $$settings{significant_figures},
+  };
   bless($self,$class);
 
   $self->selectDb($dbFile);
@@ -319,6 +327,8 @@ sub toString_phylip{
   $genome||=[];
   my $dbh=$self->{dbh};
 
+  my $sigfigs = $$self{_significant_figures} || die "INTERNAL ERROR: could not set sigfigs";
+
   # Index the genome array
   my %genome;
   $genome{_truncateFilename($_)}=1 for(@$genome);
@@ -368,7 +378,7 @@ sub toString_phylip{
       if(!defined($$distanceHash{$name[$j]})){
         logmsg "WARNING: could not find distance for $name[$i] and $name[$j]";
       }
-      $str.=sprintf("%0.10f  ",$$distanceHash{$name[$j]});
+      $str.=sprintf("%0.${sigfigs}f  ",$$distanceHash{$name[$j]});
     }
     $str=~s/ +$/\n/; # replace that trailing whitespace with a newline
   }
