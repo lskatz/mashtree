@@ -23,12 +23,11 @@ local $0=basename $0;
 #   dbFile
 #   dbh
 #   settings, a hashref with keys:
-#     significant_figures, how many sigfigs in branch lengths default:10
+#     significant_figures, how many sigfigs in mash distances default:10
 sub new{
   my($class,$dbFile,$settings)=@_;
 
-  # How many significant digits to go into the branch
-  # lengths
+  # How many significant digits to go into the mash dists 
   $$settings{significant_figures} ||= 10;
 
   my $self={
