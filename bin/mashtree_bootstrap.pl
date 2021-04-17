@@ -237,6 +237,8 @@ sub usage{
                             If zero, no bootstrapping.
   --numcpus            1    This will be passed to mashtree and will
                             be used to multithread reps.
+  --tempdir                 A directory path that will be created to
+                            store temporary files
   
   --                        Used to separate options for $0 and mashtree
   MASHTREE OPTIONS:\n".
