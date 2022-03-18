@@ -12,6 +12,12 @@ Using this filter helps avoid noise in the input data.
 Running in accurate mode is shorthand for running Mashtree with the minimum abundance filter turned on.
 Otherwise by default, a user is running in fast mode.
 
+To invoke accurate mode, run with `--mindepth 0`, e.g.,
+
+```bash
+mashtree --mindepth 0 --numcpus 12 *.fastq.gz [*.fasta] > mashtree.dnd
+```
+
 ## Confidence values
 
 Most phylogenetic trees have confidence scores associated with each hypothetical ancestor node.
