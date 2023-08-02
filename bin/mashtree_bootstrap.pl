@@ -39,7 +39,7 @@ exit main();
 
 sub main{
   my $settings={};
-  my @wrapperOptions=qw(help outmatrix=s tempdir=s reps=i numcpus=i);
+  my @wrapperOptions=qw(help file-of-files outmatrix=s tempdir=s reps=i numcpus=i);
   GetOptions($settings,@wrapperOptions) or die $!;
   $$settings{reps}//=1;
   $$settings{numcpus}||=1;
@@ -75,6 +75,10 @@ sub main{
   if(grep(/^\-+outmatrix$/,@ARGV) || grep(/^\-+o$/,@ARGV)){
     die "ERROR: outmatrix was specified for mashtree but should be an option for $0";
   }
+  # --file-of-files: should be something to give to mashtree directly
+  if(grep(/^\-+file-of-files$/,@ARGV) || grep(/^\-+f$/,@ARGV)){
+    die "ERROR: file-of-files was specified for mashtree but should be an option for $0";
+  }
   
   # Separate flagged options from reads in the mashtree options
   my @reads = ();
@@ -85,6 +89,9 @@ sub main{
     } else {
       push(@mashOptions, $ARGV[$i]);
     }
+  }
+  if($$settings{'file-of-files'}){
+    push(@mashOptions, '--file-of-files');
   }
   my $mashOptions=join(" ",@mashOptions);
   my $reads = join(" ", @reads);
@@ -167,7 +174,7 @@ sub mashtreeRepWorker{
     logmsg "Rep $rep";
     my $tempdir = $$settings{tempdir}."/$rep";
     my $seed = int(rand(4.29497e+09)); # apparently 4.29497e+09 is the largest int for mash sketch
-    my $repMashtreeOptions .= " --seed $seed";
+    my $repMashtreeOptions = $mashtreeOptions . " --seed $seed";
     my $stdout = `$FindBin::RealBin/mashtree --tempdir $tempdir --numcpus 1 $repMashtreeOptions $reads 2>&1`;
     die "ERROR on rep $rep\n$stdout" if $?;
 

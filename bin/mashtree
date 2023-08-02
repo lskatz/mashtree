@@ -188,6 +188,9 @@ sub sketchAll{
   # Initiate the threads
   my @thr;
   for(0..$$settings{numthreads}-1){
+    # If there are more threads than samples, then we need to set the number in this thread to empty array
+    $threadArr[$_] //= [];
+
     $thr[$_]=threads->new(\&mashSketch,$sketchDir,$threadArr[$_],$settings);
   }
 
