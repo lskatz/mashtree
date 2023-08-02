@@ -42,7 +42,7 @@ exit main();
 
 sub main{
   my $settings={};
-  my @wrapperOptions=qw(help outmatrix=s tempdir=s reps=i numcpus=i);
+  my @wrapperOptions=qw(help file-of-files outmatrix=s tempdir=s reps=i numcpus=i);
   GetOptions($settings,@wrapperOptions) or die $!;
   $$settings{reps}//=1;
   $$settings{numcpus}||=1;
@@ -83,6 +83,10 @@ sub main{
   if(grep(/^\-+outmatrix$/,@ARGV) || grep(/^\-+o$/,@ARGV)){
     die "ERROR: outmatrix was specified for mashtree but should be an option for $0";
   }
+  # --file-of-files: should be something to give to mashtree directly
+  if(grep(/^\-+file-of-files$/,@ARGV) || grep(/^\-+f$/,@ARGV)){
+    die "ERROR: file-of-files was specified for mashtree but should be an option for $0";
+  }
   
   # Separate flagged options from reads in the mashtree options
   my @reads = ();
@@ -93,6 +97,9 @@ sub main{
     } else {
       push(@mashOptions, $ARGV[$i]);
     }
+  }
+  if($$settings{'file-of-files'}){
+    push(@mashOptions, '--file-of-files');
   }
   my $mashOptions=join(" ",@mashOptions);
   my $reads = join(" ", @reads);
@@ -343,6 +350,10 @@ sub usage{
                             be used to multithread reps.
   --tempdir                 A directory path that will be created to
                             store temporary files
+  --file-of-files           If specified, mashtree will try to read
+                            filenames from each input file. The file of
+                            files format is one filename per line. This
+                            file of files cannot be compressed.
   
   --                        Used to separate options for $0 and mashtree
   MASHTREE OPTIONS:\n".

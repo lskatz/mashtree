@@ -247,6 +247,11 @@ sub usage{
   --tempdir                 A directory path that will be created to
                             store temporary files
   
+  --file-of-files           If specified, mashtree will try to read
+                            filenames from each input file. The file of
+                            files format is one filename per line. This
+                            file of files cannot be compressed.
+
   --                        Used to separate options for $0 and mashtree
   MASHTREE OPTIONS:\n".
   # Print the mashtree options starting with numcpus,

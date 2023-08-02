@@ -100,7 +100,7 @@ subtest "file-of-filenames" => sub{
   }
   close $fh;
 
-  my $mashtreeFofn = `mashtree_jackknife.pl --tempdir $RealBin/lambda/jackknife.tmp --reps 100 --numcpus 2 -- --file-of-files $fofn 2>$RealBin/lambda/jackknife.log`;
+  my $mashtreeFofn = `mashtree_jackknife.pl --tempdir $RealBin/lambda/jackknife.tmp --reps 100 --numcpus 2 --file-of-files $fofn 2>$RealBin/lambda/jackknife.log`;
   note $mashtreeFofn;
   
   my $treeFh = IO::String->new($mashtree);
@@ -113,6 +113,7 @@ subtest "file-of-filenames" => sub{
 
   my @leaf = sort map{$_->id} grep{$_->is_Leaf} $tree->get_nodes;
   is(scalar(@leaf), 4, "correct number of nodes");
-  note "@leaf";
+  note "leaves found: @leaf";
+  note "tree: ".$tree->as_text("newick");
 };
 
