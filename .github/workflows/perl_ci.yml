@@ -32,8 +32,8 @@ jobs:
       - name: apt-get
         run:  |
           sudo apt-get update -y
-          sudo apt-get install -y quicktree bioperl mash 
-      - name: cpanm installdeps
+          sudo apt-get install -y quicktree bioperl bioperl-run mash 
+      - name: cpanm installdeps --no-test --force
         run: cpanm --installdeps .
       - name: versions
         run:  |
