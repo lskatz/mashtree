@@ -8,13 +8,14 @@ jobs:
       matrix:
         os: ['ubuntu-22.04']
         perl: [ '5.34' ]
-        steps:
-          - uses: actions/checkout@v3
-          - uses: shogo82148/actions-setup-perl@v1
-            with:
-              perl-version: '5.34'
-              install-modules-with: cpanm
-              install-modules-args: --with-develop --with-configure
-          - run: |
-              echo "hello world!"
-              # prove -lv t
+    name: Perl ${{ matrix.perl }} on ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: '5.34'
+          install-modules-with: cpanm
+          install-modules-args: --with-develop --with-configure
+      - run: |
+          echo "hello world!"
+          # prove -lv t
