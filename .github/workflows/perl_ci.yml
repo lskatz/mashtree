@@ -21,6 +21,7 @@ jobs:
           perl-version: ${{ matrix.perl }}
           install-modules-with: cpanm
           install-modules-args: --with-develop --with-configure --force --no-test
+          enable-modules-cache: true
       - name: apt-get to prepare for cached perl packages
         run:  |
           sudo apt-get update -y
