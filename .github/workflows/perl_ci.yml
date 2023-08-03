@@ -44,5 +44,5 @@ jobs:
       - name: perl modules checks
         run: |
           for i in Bio::Tree::Statistics threads Bio::Matrix::IO Bio::Tree::DistanceFactory; do perl -M$i -e 'print "checking module $i";'; done
-#      - name: make test
-#        run: perl Makefile.PL && make && make test
+      - name: make test
+        run: perl Makefile.PL && make && make test
