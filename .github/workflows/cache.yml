@@ -1,0 +1,33 @@
+name: force-cache
+on: [push]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ['ubuntu-22.04']
+        perl: [ '5.34' ]
+    name: Perl ${{ matrix.perl }} on ${{ matrix.os }}
+    steps:
+      - name: apt-get to prepare for cached perl packages
+        run:  |
+          sudo apt-get update -y
+          sudo apt-get install -y libdb-dev sqlite3 libgd-dev libsqlite3-dev libberkeleydb-perl libcdb-file-perl
+      - uses: actions/checkout@v3
+      - uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: '5.34'
+          install-modules-with: cpanm
+          install-modules-args: --with-develop --with-configure
+          multi-thread: true
+          install-modules: |
+            JSON
+            Bio::Perl
+            Bio::Kmer
+            Bio::Tree::Statistics
+            Bio::Matrix::IO
+            Bio::Tree::DistanceFactory
+      - run: |
+          echo "hello world!"
+          # prove -lv t

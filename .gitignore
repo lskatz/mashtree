@@ -33,3 +33,13 @@ inc/
 /MANIFEST.bak
 /pm_to_blib
 /*.zip
+
+# temp testing files
+t/lambda/lambda.fofn
+t/lambda/lambda/
+t/lambda/list.lst
+t/lambda/mashtree2.tmp/
+t/lambda/sketches/
+t/lambda/tmp.dnd
+t/lambda/tmp/
+
