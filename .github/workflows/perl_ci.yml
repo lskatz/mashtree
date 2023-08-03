@@ -21,6 +21,7 @@ jobs:
           perl-version: ${{ matrix.perl }}
       - name: apt-get
         run:  |
+          sudo apt-get update -y
           sudo apt-get install -y quicktree bioperl mash sqlite3 libgd-dev libsqlite3-dev libberkeleydb-perl libcdb-file-perl
       - name: cpanm installations
         run: cpanm --installdeps .
