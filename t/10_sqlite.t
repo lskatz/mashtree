@@ -7,6 +7,10 @@ use File::Basename qw/dirname/;
 use File::Temp qw/tempdir/;
 use Data::Dumper;
 
+use FindBin qw/$RealBin/;
+use lib "$RealBin/../lib/perl5";
+use lib "$RealBin/../lib/perl5/x86_64-linux-thread-multi/";
+
 use Test::More tests => 5;
 
 use_ok 'Mashtree';
