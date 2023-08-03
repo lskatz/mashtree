@@ -16,6 +16,8 @@ jobs:
           perl-version: '5.34'
           install-modules-with: cpanm
           install-modules-args: --with-develop --with-configure
+          install-modules: |
+            JSON
       - run: |
           echo "hello world!"
           # prove -lv t
