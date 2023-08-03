@@ -35,14 +35,14 @@ jobs:
           sudo apt-get install -y quicktree bioperl mash 
       - name: cpanm installdeps
         run: cpanm --installdeps .
-#      - name: versions
-#        run:  |
-#          mash --version
-#          quicktree -v
-#          sqlite3 --version
-#      - run: perl -V
-#      - name: perl modules checks
-#        run: |
-#          for i in Bio::Tree::Statistics threads Bio::Matrix::IO Bio::Tree::DistanceFactory; do perl -M$i -e 'print "checking module $i";'; done
+      - name: versions
+        run:  |
+          mash --version
+          quicktree -v
+          sqlite3 --version
+      - run: perl -V
+      - name: perl modules checks
+        run: |
+          for i in Bio::Tree::Statistics threads Bio::Matrix::IO Bio::Tree::DistanceFactory; do perl -M$i -e 'print "checking module $i";'; done
 #      - name: make test
 #        run: perl Makefile.PL && make && make test
