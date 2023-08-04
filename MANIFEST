@@ -5,7 +5,6 @@ bin/mashtree_jackknife.pl
 bin/mashtree_bootstrap.pl
 bin/min_abundance_finder.pl
 CHANGES
-docs/SQL.md
 lib/Mashtree.pm
 lib/Mashtree/Db.pm
 lib/Mashtree/Mash.pm
@@ -33,7 +32,6 @@ t/03_subsample.t
 t/04_fileoffiles.t
 t/06_jackknifingHashes.t
 t/08_bootstrap.t
-t/10_sqlite.t
 MANIFEST
 Makefile.PL
 
