@@ -55,8 +55,6 @@ WriteMakefile1(
     'Thread::Queue'  => 0,
     # Not core (I think?)
     'File::Which'    => 0,
-    'DBI'            => 0,
-    'DBD::SQLite'    => 0,
     'Bio::SeqIO'     => 0,
     'Bio::TreeIO'    => 0,
     'Bio::Matrix::IO'=> 0,

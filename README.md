@@ -97,6 +97,10 @@ with a random seed.
 
 ## Further documentation
 
+For perl library help, run `perldoc` on a `.pm` file, e.g., `perldoc lib/Mashtree/Db.pm`.
+
+For executable help run `--help`, e.g., `mashtree_bootstrap.pl --help`.
+
 For more information and help please see the [docs folder](docs/)
 
 For more information on plugins, see the [plugins folder](plugins). (in development)

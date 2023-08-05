@@ -6,7 +6,6 @@ use Exporter qw(import);
 use File::Basename qw/fileparse basename dirname/;
 use List::Util qw/shuffle/;
 use Data::Dumper;
-use DBI;
 
 use lib dirname($INC{"Mashtree/Db.pm"});
 use lib dirname($INC{"Mashtree/Db.pm"})."/..";
@@ -19,9 +18,64 @@ our @EXPORT_OK = qw(
 
 local $0=basename $0;
 
+=pod
+
+=head1 NAME
+
+Mashtree::Db - functions for Mashtree databasing 
+
+=head1 SYNOPSIS
+
+  use strict;
+  use warnings
+  use Mashtree::Db;
+
+  my $dbFile = "mashtree.tsv";
+  my $db=Mashtree::Db->new($dbFile);
+
+  # Add 10 distances from genome "test" to other genomes
+  my %distHash;
+  for(my $dist=0;$dist<10;$dist++){
+    my $otherGenome = "genome" . $dist;
+    $distHash{"test"}{$otherGenome} = $dist;
+  }
+  $db->addDistancesFromHash(\$distHash);
+
+  my $firstDistance = $db->findDistance("test", "genome0");
+  # => 0
+
+=head1 DESCRIPTION
+
+This is a helper module, usually not used directly.
+This is how Mashtree reads and writes to the internal database.
+
+=cut
+
+=pod
+
+=head1 METHODS
+
+=over
+
+=item Mashtree::Db->new($dbFile, \%settings)
+
+Create a new Mashtree::Db object.
+
+The database file is a tab-separated file and will be created if it doesn't exist.
+If it does exist, then it will be read into memory.
+
+Arguments:
+
+  * $dbFile - a file path
+  * $settings - a hash of key/values (currently unused)
+
+=back
+
+=cut
+
 # Properties of this object:
 #   dbFile
-#   dbh
+#   cache
 #   settings, a hashref with keys:
 #     significant_figures, how many sigfigs in mash distances default:10
 sub new{
@@ -32,114 +86,150 @@ sub new{
 
   my $self={
     _significant_figures => $$settings{significant_figures},
+    cache                => {},
   };
   bless($self,$class);
 
   $self->selectDb($dbFile);
+  $self->readDatabase();
+
   return $self;
 }
 
-sub clone{
-  my($self)=@_;
+=pod
 
-  my $clone={};
-  $clone={
-    dbFile    => $self->{dbFile},
-    dbh       => $self->{dbh}->clone,
-  };
-  bless($clone,"Mashtree::Db");
-  return $clone;
-}
+=over 
 
-# Create an SQLite database for genome distances.
+=item $db->selectDb
+
+Selects a database. If it doesn't exist, then it will be created.
+Then, it sets the object property `dbFile` to the file path.
+
+=back
+
+=cut
+
+# Create a database from a TSV
+# Returns 1 if created a new database
 sub selectDb{
   my($self, $dbFile)=@_;
 
   $self->{dbFile}=$dbFile;
 
-  $self->connect();
-
-  if(-e $dbFile && -s $dbFile > 0){
-    return 0;
+  if(!-e $dbFile){
+    open(my $fh, '>', $dbFile) or die "ERROR: could not write to $dbFile: $!";
+    print $fh join("\t", qw(genome1 genome2 distance))."\n";
+    close $fh;
   }
-
-  my $dbh=$self->{dbh};
-  my $sth = $dbh->prepare(qq(
-    CREATE TABLE IF NOT EXISTS DISTANCE(
-      GENOME1     CHAR(255)    NOT NULL,
-      GENOME2     CHAR(255)    NOT NULL,
-      DISTANCE    INT          NOT NULL,
-      PRIMARY KEY(GENOME1,GENOME2)
-    )) 
-  );
-  $sth->execute();
 
   return 1;
 }
 
-sub connect{
-  my($self)=@_;
+=pod
 
-  my $dbFile=$self->{dbFile};
-  my $dbh=DBI->connect("dbi:SQLite:dbname=$dbFile","","",{
-      RaiseError => 1
-  });
-  
-  $self->{dbh}=$dbh;
-  
-  return $dbh;
+=over
+
+=item $db->readDatabase
+
+Reads the database from the dbFile set by `selectDb`.
+Returns a hash of distances, e.g., genome1 => {genome2=>dist}
+
+Then, this hash of distances is set in the object property `cache`.
+
+=back
+
+=cut
+
+sub readDatabase{
+  my($self) = @_;
+
+  my %dist;
+
+  open(my $fh, "<", $self->{dbFile}) or die "ERROR: could not read from ".$self->{dbFile}.": $!";
+  my $header = <$fh>;
+  chomp($header);
+  my @header = split(/\t/, $header);
+  my $numHeaders = @header;
+  while(my $line = <$fh>){
+    chomp($line);
+    my @F = split(/\t/, $line);
+    my %F;
+    for(my $i=0;$i<$numHeaders;$i++){
+      $F{$header[$i]} = $F[$i];
+    }
+    
+    $dist{$F{genome1}}{$F{genome2}} = $F{distance};
+  }
+
+  $self->{cache} = \%dist;
+  return \%dist;
 }
 
-# No need to call this usually because the object will 
-# disconnect from the database when it is destroyed.
-sub disconnect{
-  my($self)=@_;
-  $self->{dbh}->disconnect();
-}
+=pod
+
+=over
+
+=item addDistancesFromHash
+
+Add distances from a perl hash, $distHash
+$distHash is { genome1 => {$genome2 => $dist} }
+
+=back
+
+=cut
 
 sub addDistancesFromHash{
   my($self,$distHash)=@_;
 
-  my $dbh=$self->{dbh};
   my $numInserted=0;   # how many are going to be inserted?
 
-  my $insert = $dbh->prepare( "INSERT INTO DISTANCE VALUES ( ?, ?, ? )" );
-  my $autocommit = $dbh->{AutoCommit};
-  $dbh->{AutoCommit} = 0; # begin a new transaction
-  my $query="";
-  while(my($g1, $distHash) = each(%$distHash)){
-    while(my($g2, $dist) = each(%$distHash)){
-      next if(defined($self->findDistance($g1,$g2)));
-
-      eval{
-        $insert->execute($g1, $g2, $dist);
-      };
-
-      if ($@ || $dbh->err() ) {
-        $dbh->rollback; # avoid an "issuing rollback" warning
-        die "Error: could not insert distance between $g1 and $g2 (dist: $dist) into the database:".$dbh->err."\n";
+  open(my $fh, ">>", $self->{dbFile}) or die "ERROR: could not append to ".$self->{dbFile}.": $!";
+  for my $genome1(sort keys(%$distHash)){
+    for my $genome2(sort keys(%{ $$distHash{$genome1} })){
+      my $dist = $$distHash{$genome1}{$genome2};
+      if(!defined($dist)){
+        logmsg "WARNING: distance was not defined for $genome1 <=> $genome2";
+        logmsg "  Setting distance to 1.";
+        $dist = 1;
       }
+      print $fh join("\t", $genome1, $genome2, $dist)."\n";
       $numInserted++;
     }
   }
-  $dbh->commit;
-  $dbh->{AutoCommit} = $autocommit;
+  close $fh;
 
   return $numInserted;
 }
 
+=pod 
+
+=over
+
+=item $db->addDistances
+
+Add distances from a TSV file.
+TSV file should be a mash distances tsv file and is in the format of, e.g.,
+   # query t/lambda/sample1.fastq.gz
+   t/lambda/sample2.fastq.gz  0.059
+   t/lambda/sample3.fastq.gz  0.061
+
+=back
+
+=cut
+
 sub addDistances{
   my($self,$distancesFile)=@_;
 
-  my $dbh=$self->{dbh};
+  # update the cache just in case
+  # it helps us skip some redundancies.
+  $self->readDatabase();
+
   my $numInserted=0;   # how many are going to be inserted?
 
-  my $insert = $dbh->prepare( "INSERT INTO DISTANCE VALUES ( ?, ?, ? )" );
-  my $autocommit = $dbh->{AutoCommit};
-  $dbh->{AutoCommit} = 0; # begin a new transaction
-  open(my $fh, "<", $distancesFile) or die "ERROR: could not read $distancesFile: $!";
-  my $query="";
-  while(<$fh>){
+  open(my $inFh, "<", $distancesFile) or die "ERROR: could not read $distancesFile: $!";
+  open(my $outFh, ">>", $self->{dbFile}) or die "ERROR: could not append to ".$self->{dbFile}.": $!";
+  my $query = "";
+  while(<$inFh>){
     chomp;
     if(/^#\s*query\s+(.+)/){
       $query=$1;
@@ -147,96 +237,91 @@ sub addDistances{
       $query=_truncateFilename($query);
       next;
     }
+    die "ERROR: query was not stated in the mash dist -t output: $distancesFile" if(!$query);
     my($subject,$distance)=split(/\t/,$_);
     $subject=~s/^\s+|\s+$//g;  # whitespace trim before right-padding is added
     $subject=_truncateFilename($subject);
-    
-    next if(defined($self->findDistance($query,$subject)));
 
-    $insert->execute( $query, $subject, $distance );
-    if ( $dbh->err() ) {
-        die "Error: could not insert $distancesFile into the database.\n";
-    }
+    next if(defined($self->findDistance($query,$subject)));
+    print $outFh join("\t", $query, $subject, $distance)."\n";
     $numInserted++;
   }
-  $dbh->commit;
-  $dbh->{AutoCommit} = $autocommit;
+  close $outFh;
+  close $inFh;
 
   return $numInserted;
 }
 
-# Find all distances with a single genome
-sub findDistances{
-  my($self,$genome1)=@_;
+=pod
 
-  my $dbh=$self->{dbh};
-  
-  my $sth=$dbh->prepare(qq(SELECT GENOME2,DISTANCE 
-    FROM DISTANCE 
-    WHERE GENOME1=?
-    ORDER BY GENOME2
-  ));
-  my $rv = $sth->execute( $genome1 ) or die $DBI::errstr;
-  if($rv < 0){
-    die $DBI::errstr;
-  }
+=over
 
-  # Distance will be undefined unless there is a result
-  # on the SQL select statement.
-  my %distance;
-  while(my @row=$sth->fetchrow_array()){
-    $distance{$row[0]}=$row[1];
-  }
+=item $db->findDistance
 
-  # Find it in GENOME2 also
-  my $sth2=$dbh->prepare(qq(SELECT GENOME1,DISTANCE 
-    FROM DISTANCE 
-    WHERE GENOME2=?
-    ORDER BY GENOME1
-  ));
-  my $rv2 = $sth2->execute( $genome1 ) or die $DBI::errstr;
-  if($rv2 < 0){
-    die $DBI::errstr;
-  }
-  while(my @row=$sth2->fetchrow_array()){
-    $distance{$row[0]}=$row[1];
-  }
+Find the distance between any two genomes.
+Return undef if not found.
 
-  return \%distance;
-}
+=back
+
+=cut
 
 sub findDistance{
-  my($self,$genome1,$genome2)=@_;
-
-  my $dbh=$self->{dbh};
+  my($self, $query, $subject) = @_;
   
-  my $sth=$dbh->prepare(qq(SELECT DISTANCE FROM DISTANCE WHERE 
-    (GENOME1=? AND GENOME2=?)
-    OR
-    (GENOME2=? AND GENOME1=?)
-  ));
-  my $rv = $sth->execute( $genome1, $genome2, $genome1, $genome2 ) or die $DBI::errstr;
-  if($rv < 0){
-    die $DBI::errstr;
+  my $dists = $self->{cache};
+  if(defined($$dists{$query}{$subject})){
+    return $$dists{$query}{$subject};
   }
-
-  # Distance will be undefined unless there is a result
-  # on the SQL select statement.
-  my $distance;
-  while(my @row=$sth->fetchrow_array()){
-    ($distance)=@row;
+  if(defined($$dists{$subject}{$query})){
+    return $$dists{$subject}{$query};
   }
-
-  return $distance;
+  
+  return undef;
 }
 
-# Format can be:
-#   tsv    3-column format
-#   matrix all-vs all tsv format
-#   phylip Phylip matrix format
-# sortBy can be:
-#   abc
-#   rand
+=pod
+
+=over
+
+=item $db->findDistances
+
+Find all distances from one genome to all others
+Return undef if not found.
+
+=back
+
+=cut
+
+sub findDistances{
+  my($self, $query) = @_;
+
+  my $dists = $self->{cache};
+  return $$dists{$query};
+}
+
+=pod
+
+=over
+
+=item $db->toString
+
+Turn the database into a string representation.
+
+Arguments:
+
+  * genomeArray - list of genomes to include, or undef for all genomes
+  * format - can be a string of one of these values:
+    * tsv    3-column format (default)
+    * matrix all-vs all tsv format
+    * phylip Phylip matrix format
+  * sortBy - can be:
+    * abc (default)
+    * rand
+
+=back
+
+=cut
+
 sub toString{
   my($self,$genome,$format,$sortBy)=@_;
   $format//="tsv";
@@ -275,6 +360,8 @@ sub toString_matrix{
   return $str;
 }
 
+# Return the database in a TSV formatted file along with a header,
+# or if you ask for an array/hash, then it will return a hash of genome1=>{genome2=>dist}
 sub toString_tsv{
   my($self,$genome,$sortBy)=@_;
   $sortBy||="abc";
@@ -286,45 +373,32 @@ sub toString_tsv{
   my %genome;
   $genome{_truncateFilename($_)}=1 for(@$genome);
 
-  my $str="";
+  my %dist;
 
-  my $sql=qq(
-    SELECT GENOME1,GENOME2,DISTANCE
-    FROM DISTANCE
-  );
-  if($sortBy eq 'abc'){
-    $sql.="ORDER BY GENOME1,GENOME2 ASC";
-  } elsif($sortBy eq 'rand'){
-    $sql.="ORDER BY NEWID()";
-  }
-  
-  my $sth=$dbh->prepare($sql);
-  my $rv=$sth->execute or die $DBI::errstr;
-  if($rv < 0){
-    die $DBI::errstr;
-  }
+  open(my $fh, "<", $self->{dbFile}) or die "ERROR: could not read ".$self->{dbFile}.": $!";
+  my $str = <$fh>;
+  my @header = split(/\t/, $str);
+  chomp(@header);
+  while(my $line = <$fh>){
+    $str .= $line;
 
-  my %distance;
-  while(my @row=$sth->fetchrow_array()){
-    # If the parameter was given to filter genome names,
-    # do it here.
-    my $truncatedName1 = _truncateFilename($row[0]);
-    my $truncatedName2 = _truncateFilename($row[1]);
-    next if(@$genome && (!$genome{$truncatedName1} || !$genome{$truncatedName2}));
+    my %d;
+    chomp($line);
+    my @F = split(/\t/, $line);
+    @d{@header} = @F;
 
-    $_=~s/^\s+|\s+$//g for(@row); # whitespace trim
-    $str.=join("\t",@row)."\n";
-    $distance{$row[0]}{$row[1]}=$row[2];
+    $dist{$d{genome1}}{$d{genome2}}=$d{distance};
   }
-  return %distance if(wantarray);
+  return %dist if(wantarray);
   return $str;
 }
 
 sub toString_phylip{
   my($self,$genome,$sortBy)=@_;
+
+  my %dist = $self->toString_tsv();
   $sortBy||="abc";
   $genome||=[];
-  my $dbh=$self->{dbh};
 
   my $sigfigs = $$self{_significant_figures} || die "INTERNAL ERROR: could not set sigfigs";
 
@@ -336,27 +410,18 @@ sub toString_phylip{
 
   # The way phylip is, I need to know the genome names
   # a priori. Get the genome names from the db.
-  my @name;
-  my $sql=qq(
-    SELECT DISTINCT(GENOME1) 
-    FROM DISTANCE 
-    ORDER BY GENOME1 ASC\n
-  );
-  my $sth=$dbh->prepare($sql);
-  my $rv=$sth->execute or die $DBI::errstr;
-  if($rv < 0){
-    die $DBI::errstr;
-  }
+  my @rawName = sort{$a cmp $b} keys(%dist);
 
   my $maxGenomeLength=0;
-  while(my @row=$sth->fetchrow_array()){
+  my @name;
+  for my $name(@rawName){
     # If the parameter was given to filter genome names,
     # do it here.
-    my $truncatedName = _truncateFilename($row[0]);
+    my $truncatedName = _truncateFilename($name);
     next if(@$genome && !$genome{$truncatedName});
 
-    push(@name,$row[0]);
-    $maxGenomeLength=length($row[0]) if(length($row[0]) > $maxGenomeLength);
+    push(@name,$name);
+    $maxGenomeLength=length($name) if(length($name) > $maxGenomeLength);
   }
 
   # We are already sorted alphabetically, so just worry
@@ -371,7 +436,7 @@ sub toString_phylip{
   for(my $i=0;$i<$numGenomes;$i++){
     $str.=$name[$i];
     $str.=" " x ($maxGenomeLength - length($name[$i]) + 2);
-    my $distanceHash=$self->findDistances($name[$i]);
+    my $distanceHash = $dist{$name[$i]};
 
     for(my $j=0;$j<$numGenomes;$j++){
       if(!defined($$distanceHash{$name[$j]})){

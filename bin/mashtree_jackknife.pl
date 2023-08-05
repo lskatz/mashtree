@@ -268,8 +268,8 @@ sub subsampleMashSketchesWorker{
     }
 
     # Add distances to database
-    print $logFh "Creating database, $subsampleDir/distances.sqlite\n";
-    my $mashtreeDb = Mashtree::Db->new("$subsampleDir/distances.sqlite");
+    print $logFh "Creating database, $subsampleDir/distances.db.tsv\n";
+    my $mashtreeDb = Mashtree::Db->new("$subsampleDir/distances.db.tsv");
     $mashtreeDb->addDistancesFromHash(\%dist);
     # Convert to Phylip
     my $phylipFile = "$subsampleDir/distances.phylip";

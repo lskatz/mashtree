@@ -366,7 +366,7 @@ sub mashDistance{
   close $mshListFh;
 
   # Instatiate the database and create the table before the threads get to it
-  my $mashtreeDbFilename="$outdir/distances.sqlite";
+  my $mashtreeDbFilename="$outdir/distances.db.tsv";
   my $mashtreeDb=Mashtree::Db->new($mashtreeDbFilename,{significant_figures=>$$settings{sigfigs}});
 
   # Make an array of distance files for each thread.

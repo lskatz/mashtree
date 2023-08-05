@@ -71,7 +71,7 @@ subtest "Parts of the tree file intact" => sub{
 # Test to validate distances on the first rep
 subtest "Database of distances for rep1" => sub{
   plan tests=>20;
-  my $db = Mashtree::Db->new("$RealBin/lambda/jackknife.tmp/rep1/distances.sqlite");
+  my $db = Mashtree::Db->new("$RealBin/lambda/jackknife.tmp/rep1/distances.db.tsv");
   my @dist = split(/\n/, $db->toString('','phylip'));
   chomp(@dist);
   shift(@dist);
