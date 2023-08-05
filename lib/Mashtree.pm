@@ -23,10 +23,47 @@ our @EXPORT_OK = qw(
 
 local $0=basename $0;
 
+=pod
+
+=head1 NAME Mashtree
+
+=head1 SYNOPSIS
+
+Helps run a mashtree analysis to make rapid trees for genomes.
+Please see github.com/lskatz/Mashtree for more information.
+
+=head1 VARIABLES
+
+=over
+
+=item $VERSION
+
+=item $MASHTREE_VERSION (same value as $VERSION)
+
+=item @fastqExt = qw(.fastq.gz .fastq .fq .fq.gz)
+
+=item @fastaExt = qw(.fasta .fna .faa .mfa .fas .fsa .fa)
+
+=item @bamExt = qw(.sorted.bam .bam)
+
+=item @vcfExt = qw(.vcf.gz .vcf)
+
+=item @mshExt = qw(.msh)
+
+=item @richseqExt = qw(.gb .gbank .genbank .gbk .gbs .gbf .embl .ebl .emb .dat .swiss .sp)
+
+=item $fhStick :shared 
+
+Used to mark whether a file is being read, so that Mashtree limits disk I/O
+
+=back
+
+=cut
+
 ######
 # CONSTANTS
 
-our $VERSION = "1.3.1";
+our $VERSION = "1.4.0";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
@@ -41,6 +78,16 @@ our @richseqExt=qw(.gb .gbank .genbank .gbk .gbs .gbf .embl .ebl .emb .dat .swis
 # Helpful things
 my $fhStick :shared;  # A thread can only open a fastq file if it has the talking stick.
 
+=head1 METHODS
+
+=over
+
+=item $SIG{'__DIE__'}
+
+Remakes how `die` works, so that it references the caller
+
+=cut
+
 #################################################
 ### COMMON SUBS/TOOLS (not object subroutines) ##
 #################################################
@@ -53,6 +100,15 @@ $SIG{'__DIE__'} = sub {
   $e =~ s/(at [^\s]+? line \d+\.$)/\nStopped $1/; 
   die("$0: $callerSub: $e"); 
 };
+
+=pod
+
+=item logmsg
+
+Prints a message to STDERR with the thread number and the program name, with a trailing newline.
+
+=cut
+
 # Centralized logmsg
 #sub logmsg {print STDERR "$0: ".(caller(1))[3].": @_\n";}
 sub logmsg {
@@ -69,7 +125,14 @@ sub logmsg {
   print STDERR $msg;
 }
 
-# Opens a fastq file in a thread-safe way.
+=pod
+
+=item openFastq
+
+ Opens a fastq file in a thread-safe way.
+
+=cut
+
 sub openFastq{
   my($fastq,$settings)=@_;
 
@@ -87,7 +150,14 @@ sub openFastq{
   return $fh;
 }
 
-# Removes fastq extension, removes directory name,
+=pod
+
+=item _truncateFilename
+
+ Removes fastq extension, removes directory name,
+
+=cut
+
 sub _truncateFilename{
   my($file,$settings)=@_;
   # strip off msh and any other known extentions
@@ -101,9 +171,17 @@ sub _truncateFilename{
   return $name;
 }
 
+=pod
 
-# 1. Read the mash distances
-# 2. Create a phylip file
+=item distancesToPhylip
+
+1. Read the mash distances
+2. Create a phylip file
+
+Arguments: hash of distances, output directory, settings hash
+
+=cut
+
 sub distancesToPhylip{
   my($distances,$outdir,$settings)=@_;
 
@@ -172,6 +250,20 @@ sub distancesToPhylip{
   return $phylip;
 }
 
+=pod
+
+=item sortNames
+
+Sorts names.
+
+Arguments: 
+
+1. $name - array of names
+2. $settings - options
+  * $$settings{'sort-order'} is either "abc", "random", "input-order"
+
+=cut
+
 sub sortNames{
   my($name,$settings)=@_;
   my @sorted;
@@ -187,8 +279,15 @@ sub sortNames{
   return @sorted;
 }
 
-# Create tree file with Quicktree but bioperl 
-# as a backup.
+=pod
+
+=item createTreeFromPhylip($phylip, $outdir, $settings)
+
+ Create tree file with Quicktree but bioperl 
+ as a backup.
+
+=cut
+
 sub createTreeFromPhylip{
   my($phylip,$outdir,$settings)=@_;
 
@@ -225,8 +324,15 @@ sub createTreeFromPhylip{
 
 }
 
-# Lee's implementation of a tree distance. The objective
-# is to return zero if two trees are the same.
+=pod
+
+=item treeDist($treeObj1, $treeObj2)
+
+ Lee's implementation of a tree distance. The objective
+ is to return zero if two trees are the same.
+
+=cut
+
 sub treeDist{
   my($treeObj1,$treeObj2)=@_;
 
@@ -309,8 +415,15 @@ sub treeDist{
   return $euclideanDistance;
 }
 
-# Find the distance between two mash sketch files
-# Alternatively: two hash lists.
+=pod
+
+=item mashDist($file1, $file2, $k, $settings)
+
+Find the distance between two mash sketch files
+Alternatively: two hash lists.
+
+=cut
+
 sub mashDist{
   my($file1, $file2, $k, $settings)=@_;
 
@@ -354,6 +467,14 @@ sub mashDist{
   return $mash_distance;
 }
 
+=pod
+
+=item mashHashes($sketch)
+
+Return an array of hashes, the kmer length, and the genome estimated length
+
+=cut
+
 sub mashHashes{
   my($sketch)=@_;
   my @hash;
@@ -393,9 +514,16 @@ sub mashHashes{
   return (\@hash, $kmer, $length);
 }
 
-# Compare unequal sized hashes. Treat the first
-# set of hashes as the reference (denominator)
-# set.
+=pod
+
+=item raw_mash_distance_unequal_sizes($hashes1, $hashes2)
+
+Compare unequal sized hashes. Treat the first
+set of hashes as the reference (denominator)
+set.
+
+=cut
+
 sub raw_mash_distance_unequal_sizes{
   my($hashes1, $hashes2) = @_;
 
@@ -416,7 +544,15 @@ sub raw_mash_distance_unequal_sizes{
   return($common,$total);
 }
 
-# https://github.com/onecodex/finch-rs/blob/master/src/distance.rs#L34
+=pod
+
+=item raw_mash_distance($hashes1, $hashes2)
+
+Return the number of kmers in common and the number compared total. inspiration from
+https://github.com/onecodex/finch-rs/blob/master/src/distance.rs#L34
+
+=cut
+
 sub raw_mash_distance{
   my($hashes1, $hashes2) = @_;
 
@@ -472,7 +608,7 @@ sub raw_mash_distance{
 # The only difference is that it isn't an object method
 # and that it is called without an OO implementation.
 
-=head2 transfer_bootstrap_expectation
+=item transfer_bootstrap_expectation
 
  Title   : transfer_bootstrap_expectation
  Usage   : my $tree_with_bs = transfer_bootstrap_expectation(\@bs_trees,$guide_tree);
@@ -482,6 +618,9 @@ sub raw_mash_distance{
  Returns : L<Bio::Tree::TreeI>
  Args    : Arrayref of L<Bio::Tree::TreeI>s
            Guide tree, L<Bio::Tree::TreeI>s
+
+=back
+
 =cut
 
 sub transfer_bootstrap_expectation{

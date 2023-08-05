@@ -18,6 +18,61 @@ our @EXPORT_OK = qw(
 
 local $0=basename $0;
 
+=pod
+
+=head1 NAME
+
+Mashtree::Db - functions for Mashtree databasing 
+
+=head1 SYNOPSIS
+
+  use strict;
+  use warnings
+  use Mashtree::Db;
+
+  my $dbFile = "mashtree.tsv";
+  my $db=Mashtree::Db->new($dbFile);
+
+  # Add 10 distances from genome "test" to other genomes
+  my %distHash;
+  for(my $dist=0;$dist<10;$dist++){
+    my $otherGenome = "genome" . $dist;
+    $distHash{"test"}{$otherGenome} = $dist;
+  }
+  $db->addDistancesFromHash(\$distHash);
+
+  my $firstDistance = $db->findDistance("test", "genome0");
+  # => 0
+
+=head1 DESCRIPTION
+
+This is a helper module, usually not used directly.
+This is how Mashtree reads and writes to the internal database.
+
+=cut
+
+=pod
+
+=head1 METHODS
+
+=over
+
+=item Mashtree::Db->new($dbFile, \%settings)
+
+Create a new Mashtree::Db object.
+
+The database file is a tab-separated file and will be created if it doesn't exist.
+If it does exist, then it will be read into memory.
+
+Arguments:
+
+  * $dbFile - a file path
+  * $settings - a hash of key/values (currently unused)
+
+=back
+
+=cut
+
 # Properties of this object:
 #   dbFile
 #   cache
@@ -41,6 +96,19 @@ sub new{
   return $self;
 }
 
+=pod
+
+=over 
+
+=item $db->selectDb
+
+Selects a database. If it doesn't exist, then it will be created.
+Then, it sets the object property `dbFile` to the file path.
+
+=back
+
+=cut
+
 # Create a database from a TSV
 # Returns 1 if created a new database
 sub selectDb{
@@ -57,7 +125,21 @@ sub selectDb{
   return 1;
 }
 
-# Read the database into the hash
+=pod
+
+=over
+
+=item $db->readDatabase
+
+Reads the database from the dbFile set by `selectDb`.
+Returns a hash of distances, e.g., genome1 => {genome2=>dist}
+
+Then, this hash of distances is set in the object property `cache`.
+
+=back
+
+=cut
+
 sub readDatabase{
   my($self) = @_;
 
@@ -83,8 +165,19 @@ sub readDatabase{
   return \%dist;
 }
 
-# Add distances from a perl hash, $distHash
-# $distHash is { genome1 => {$genome2 => $dist} }
+=pod
+
+=over
+
+=item addDistancesFromHash
+
+Add distances from a perl hash, $distHash
+$distHash is { genome1 => {$genome2 => $dist} }
+
+=back
+
+=cut
+
 sub addDistancesFromHash{
   my($self,$distHash)=@_;
 
@@ -108,11 +201,22 @@ sub addDistancesFromHash{
   return $numInserted;
 }
 
-# Add distances from a TSV file.
-# TSV file should be a mash distances tsv file and is in the format of, e.g.,
-#   # query t/lambda/sample1.fastq.gz
-#   t/lambda/sample2.fastq.gz  0.059
-#   t/lambda/sample3.fastq.gz  0.061
+=pod 
+
+=over
+
+=item $db->addDistances
+
+Add distances from a TSV file.
+TSV file should be a mash distances tsv file and is in the format of, e.g.,
+   # query t/lambda/sample1.fastq.gz
+   t/lambda/sample2.fastq.gz  0.059
+   t/lambda/sample3.fastq.gz  0.061
+
+=back
+
+=cut
+
 sub addDistances{
   my($self,$distancesFile)=@_;
 
@@ -148,8 +252,19 @@ sub addDistances{
   return $numInserted;
 }
 
-# Find the distance between any two genomes.
-# Return undef if not found.
+=pod
+
+=over
+
+=item $db->findDistance
+
+Find the distance between any two genomes.
+Return undef if not found.
+
+=back
+
+=cut
+
 sub findDistance{
   my($self, $query, $subject) = @_;
   
@@ -164,8 +279,19 @@ sub findDistance{
   return undef;
 }
 
-# Find all distances from one genome to all others
-# Return -1 if not found.
+=pod
+
+=over
+
+=item $db->findDistances
+
+Find all distances from one genome to all others
+Return undef if not found.
+
+=back
+
+=cut
+
 sub findDistances{
   my($self, $query) = @_;
 
@@ -173,13 +299,29 @@ sub findDistances{
   return $$dists{$query};
 }
 
-# Format can be:
-#   tsv    3-column format
-#   matrix all-vs all tsv format
-#   phylip Phylip matrix format
-# sortBy can be:
-#   abc
-#   rand
+=pod
+
+=over
+
+=item $db->toString
+
+Turn the database into a string representation.
+
+Arguments:
+
+  * genomeArray - list of genomes to include, or undef for all genomes
+  * format - can be a string of one of these values:
+    * tsv    3-column format (default)
+    * matrix all-vs all tsv format
+    * phylip Phylip matrix format
+  * sortBy - can be:
+    * abc (default)
+    * rand
+
+=back
+
+=cut
+
 sub toString{
   my($self,$genome,$format,$sortBy)=@_;
   $format//="tsv";
