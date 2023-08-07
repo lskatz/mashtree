@@ -24,7 +24,7 @@ For most Linux OSs, you will need to set up your environment like this:
 Some system packages are needed.  On Ubuntu, this is how you might install these packages.
 
     apt update
-    apt install -y build-essential cpanminus libexpat1-dev wget sqlite3 libsqlite3-dev
+    apt install -y build-essential cpanminus libexpat1-dev wget 
 
 #### Perl packages
 
