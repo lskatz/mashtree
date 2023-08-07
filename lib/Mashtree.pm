@@ -32,6 +32,29 @@ local $0=basename $0;
 Helps run a mashtree analysis to make rapid trees for genomes.
 Please see github.com/lskatz/Mashtree for more information.
 
+=over
+
+=item mashtree executables
+
+This document covers the Mashtree library, but the highlight
+the mashtree package is the executable `mashtree`.
+See github.com/lskatz/Mashtree for more information.
+
+Fast method:
+
+    mashtree --numcpus 12 *.fastq.gz [*.fasta] > mashtree.dnd
+
+More accurate method:
+
+    mashtree --mindepth 0 --numcpus 12 *.fastq.gz [*.fasta] > mashtree.dnd
+
+Bootstrapping and jackknifing
+
+    mashtree_bootstrap.pl --reps 100 --numcpus 12 *.fastq.gz -- --min-depth 0 > mashtree.jackknife.dnd
+    mashtree_jackknife.pl --reps 100 --numcpus 12 *.fastq.gz -- --min-depth 0 > mashtree.jackknife.dnd
+
+=back
+
 =head1 VARIABLES
 
 =over
@@ -63,7 +86,7 @@ Used to mark whether a file is being read, so that Mashtree limits disk I/O
 ######
 # CONSTANTS
 
-our $VERSION = "1.4.0";
+our $VERSION = "1.4.1";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);

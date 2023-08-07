@@ -3,11 +3,11 @@
 ## Prerequisite software
 
 * Mash >= v2.0
-* SQLite3
+* ~~SQLite3~~ Removed in version 1.4
 * Perl
   * multithreading
   * BioPerl library
-  * `DBD::SQLite`
+  * ~~`DBD::SQLite`~~ Removed in version 1.4
 * Quicktree
 
 ### Environment
@@ -30,7 +30,7 @@ Some system packages are needed.  On Ubuntu, this is how you might install these
 
 There are some perl packages too and so this is how you would install those on most Linux OSs:
 
-    cpanm -l ~ --notest BioPerl Bio::Sketch::Mash DBD::SQLite DBI 
+    cpanm -l ~ --notest BioPerl Bio::Sketch::Mash
 
 #### Quicktree
 
