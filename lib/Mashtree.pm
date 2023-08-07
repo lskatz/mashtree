@@ -86,7 +86,7 @@ Used to mark whether a file is being read, so that Mashtree limits disk I/O
 ######
 # CONSTANTS
 
-our $VERSION = "1.4.2";
+our $VERSION = "1.4.3";
 our $MASHTREE_VERSION=$VERSION;
 our @fastqExt=qw(.fastq.gz .fastq .fq .fq.gz);
 our @fastaExt=qw(.fasta .fna .faa .mfa .fas .fsa .fa);
