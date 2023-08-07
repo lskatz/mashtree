@@ -1,3 +1,7 @@
+v1.4 removed SQL dependency
+
+v0.55 bootstrapping
+
 v0.41
 * Fixed some unit test bugs from v0.40. Addresses issue #37 on GitHub.
 
