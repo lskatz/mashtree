@@ -1,7 +1,6 @@
 # mashtree
 
 [![DOI](https://joss.theoj.org/papers/10.21105/joss.01762/status.svg)](https://doi.org/10.21105/joss.01762)
-[![Build Status](https://travis-ci.org/lskatz/mashtree.svg?branch=master)](https://travis-ci.org/lskatz/mashtree)
 
 Create a tree using Mash distances.
 
