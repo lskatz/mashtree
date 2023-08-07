@@ -759,11 +759,3 @@ sub transfer_bootstrap_expectation{
 
 __END__
 
-=head1 NAME
-
-Mashtree - Create a tree using Mash distances.
-
-=head1 LICENSE MIT
-
-=cut
-
