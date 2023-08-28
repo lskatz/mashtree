@@ -19,13 +19,13 @@ my $preop = 'true;';
   #'pod2text README.pod | tee $(DISTVNAME)/README > README';
 
 # Execute something before `make`
-my $preBuild=
-  'rm -f bin/ROSS-v0.3.tar.gz;' .
-  'if [ ! -e ./bin/ROSS-0.3/LICENSE ]; then ' .
-  'wget https://github.com/lskatz/ROSS/archive/v0.3.tar.gz -O bin/ROSS-v0.3.tar.gz;'.
-  'tar -zxvf ./bin/ROSS-v0.3.tar.gz --directory ./bin;'.
-  'fi;' .
-  '';
+my $preBuild= 'true';
+#'rm -f bin/ROSS-v0.3.tar.gz;' .
+#  'if [ ! -e ./bin/ROSS-0.3/LICENSE ]; then ' .
+#  'wget https://github.com/lskatz/ROSS/archive/v0.3.tar.gz -O bin/ROSS-v0.3.tar.gz;'.
+#  'tar -zxvf ./bin/ROSS-v0.3.tar.gz --directory ./bin;'.
+#  'fi;' .
+#  '';
 
 WriteMakefile1(
   NAME         => 'Mashtree',
