@@ -20,7 +20,7 @@ jobs:
         with:
           perl-version: ${{ matrix.perl }}
           install-modules-with: cpanm
-          install-modules-args: --with-develop --with-configure --force --no-test
+          install-modules-args: --with-develop --with-configure --force --notest
           enable-modules-cache: true
           multi-thread: true
           install-modules: |
@@ -35,7 +35,7 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y libdb-dev sqlite3 libgd-dev libsqlite3-dev libberkeleydb-perl libcdb-file-perl quicktree mash
       - name: cpanm installdeps --notest --force
-        run: cpanm --installdeps . --no-test --force
+        run: cpanm --installdeps . --notest --force
       - name: versions
         run:  |
           mash --version
