@@ -26,16 +26,18 @@ jobs:
           install-modules: |
             JSON
             Bio::Perl
+            Bio::TreeIO
             Bio::Kmer
             Bio::Tree::Statistics
             Bio::Matrix::IO
             Bio::Tree::DistanceFactory
+            Bio::Sketch::Mash
       - name: apt-get to prepare for cached perl packages
         run:  |
           sudo apt-get update -y
           sudo apt-get install -y libdb-dev sqlite3 libgd-dev libsqlite3-dev libberkeleydb-perl libcdb-file-perl quicktree mash
-      - name: cpanm installdeps --notest --force
-        run: cpanm --installdeps . --notest --force --verbose
+      #- name: cpanm installdeps --notest --force
+      #  run: cpanm --installdeps . --notest --force --verbose
       - name: versions
         run:  |
           mash --version
