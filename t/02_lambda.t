@@ -7,14 +7,42 @@ use FindBin qw/$RealBin/;
 
 use lib "$RealBin/../lib";
 use File::Basename qw/dirname basename/;
+use File::Temp qw/tempdir/;
+use File::Copy qw/cp/;
 use Digest::MD5 qw/md5_hex/;
 
-use Test::More tests => 6;
+use Test::More tests => 7;
 
 use_ok 'Mashtree';
 use Mashtree qw/treeDist mashDist raw_mash_distance mashHashes/;
 
 $ENV{PATH}="./bin:$ENV{PATH}";
+
+my $tempdir = tempdir(basename($0).".XXXXXX", TMP=>1, CLEANUP=>1);
+
+subtest 'space in filename' => sub {
+  my $wd = "$tempdir/spaces";
+  mkdir $wd;
+  my @target;
+  for my $filename(glob("$RealBin/lambda/*.fastq.gz")){
+    my $target = "$wd/".basename($filename);
+    $target =~ s/sample(\d)/sample $1/; # add in a space for funsies
+    cp($filename, $target) or die "ERROR: could not copy $filename to $target: $!";
+
+    push(@target, $target);
+  }
+
+  # e.g., '02_lambda.tmp.tiF_bn/spaces/sample 1.fastq.gz' '02_lambda.tmp.tiF_bn/spaces/sample 2.fastq.gz' '02_lambda.tmp.tiF_bn/spaces/sample 3.fastq.gz' '02_lambda.tmp.tiF_bn/spaces/sample 4.fastq.gz'
+  my $targets = "'" . join("' '", @target) . "'";
+  my $cmd = "mashtree --outmatrix lambdadist.tsv --genomesize 40000 --numcpus 1 $targets 2>$0.log";
+  note $cmd;
+  system($cmd);
+  my $exit_code = $? >> 8;
+  if($exit_code){
+    note `cat $0.log`;
+  }
+  is($exit_code, 0, "Ran mashtree with exit code $exit_code");
+};
 
 my $correctMashtree="(sample3:0.00195,sample4:0.00205,(sample1:0.00205,sample2:0.00205):0.00010);";
 $correctMashtree=~s/(\d+\.)(\d+)/$1 . substr($2,0,4)/ge; # global and expression

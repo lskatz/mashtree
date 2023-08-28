@@ -434,7 +434,12 @@ sub toString_phylip{
 
   $str.=(" " x 4) . "$numGenomes\n";
   for(my $i=0;$i<$numGenomes;$i++){
-    $str.=$name[$i];
+
+    # sanitize sample names by removing spaces
+    my $sanitizedName = $name[$i];
+    $sanitizedName =~ s/\s/_/g;
+
+    $str.=$sanitizedName;
     $str.=" " x ($maxGenomeLength - length($name[$i]) + 2);
     my $distanceHash = $dist{$name[$i]};
 

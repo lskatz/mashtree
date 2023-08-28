@@ -317,7 +317,7 @@ sub mashSketch{
       logmsg "WARNING: $fastq is a zero byte file. Skipping.";
       next;
     } else {
-      my $sketchCommand="mash sketch -S $$settings{seed} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o $outPrefix $fastq 2>&1";
+      my $sketchCommand="mash sketch -S $$settings{seed} -k $$settings{kmerlength} -s $$settings{'sketch-size'} $sketchXopts -o \Q$outPrefix\E \Q$fastq\E 2>&1";
       my $stdout = `$sketchCommand`;
       if ($?){
         logmsg "ERROR running $sketchCommand!\n  $stdout";
@@ -421,8 +421,9 @@ sub mashDist{
   for my $msh(@$mshArr){
     #my $outfile="$outdir/".basename($msh).".tsv";
     logmsg "Distances for $msh";
-    my @distRes =`mash dist -t $msh -l $mshList`;
-    die "ERROR with 'mash dist -t $msh -l $mshList'" if $?;
+    my $cmd = "mash dist -t \Q$msh\E -l $mshList";
+    my @distRes = `$cmd`;
+    die "ERROR with $cmd" if $?;
     chomp(@distRes);
 
     my $query="";
