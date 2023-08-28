@@ -35,7 +35,7 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y libdb-dev sqlite3 libgd-dev libsqlite3-dev libberkeleydb-perl libcdb-file-perl quicktree mash
       - name: cpanm installdeps --notest --force
-        run: cpanm --installdeps . --notest --force
+        run: cpanm --installdeps . --notest --force --verbose
       - name: versions
         run:  |
           mash --version
