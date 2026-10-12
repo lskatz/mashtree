@@ -314,9 +314,11 @@ Arguments:
     * tsv    3-column format (default)
     * matrix all-vs all tsv format
     * phylip Phylip matrix format
-  * sortBy - can be:
+  * sortBy - sample order for matrix and phylip formats. Can be:
     * abc (default)
-    * rand
+    * random (or rand)
+    * input-order - the order of genomeArray. If no genomeArray
+      is given, falls back to alphabetical.
 
 =back
 
@@ -344,7 +346,7 @@ sub toString_matrix{
   my($self,$genome,$sortBy)=@_;
 
   my %distance=$self->toString_tsv($genome,$sortBy);
-  my @name=keys(%distance);
+  my @name=$self->_sortedNames(\%distance,$genome,$sortBy);
   my $numNames=@name;
 
   my $str=join("\t",".",@name)."\n";
@@ -393,6 +395,41 @@ sub toString_tsv{
   return $str;
 }
 
+# Return the genome names found in the distances hash, in the
+# requested order. If a genome array is given, only those
+# genomes are returned. For input-order, the order of
+# the genome array is kept.
+sub _sortedNames{
+  my($self,$dist,$genome,$sortBy)=@_;
+  $sortBy||="abc";
+  $genome||=[];
+
+  # The way phylip is, I need to know the genome names
+  # a priori. Get the genome names from the db.
+  my @name = sort{$a cmp $b} keys(%$dist);
+
+  if(@$genome){
+    # If the parameter was given to filter genome names,
+    # do it here, keeping the order of the genome array.
+    my %dbName;
+    for my $name(@name){
+      push(@{ $dbName{_truncateFilename($name)} }, $name);
+    }
+    # Names listed exactly keep their own place so that names
+    # truncating to the same thing keep the genome array order.
+    my %listed = map{$_=>1} grep{exists($$dist{$_})} @$genome;
+    my %seen;
+    @name = grep{!$seen{$_}++}
+            map{
+              my $truncatedName=_truncateFilename($_);
+              ((exists($$dist{$_}) ? $_ : ()),
+               grep{!$listed{$_}} @{ $dbName{$truncatedName} || [] });
+            } @$genome;
+  }
+
+  return sortNames(\@name,{'sort-order'=>$sortBy});
+}
+
 sub toString_phylip{
   my($self,$genome,$sortBy)=@_;
 
@@ -402,32 +439,12 @@ sub toString_phylip{
 
   my $sigfigs = $$self{_significant_figures} || die "INTERNAL ERROR: could not set sigfigs";
 
-  # Index the genome array
-  my %genome;
-  $genome{_truncateFilename($_)}=1 for(@$genome);
-
   my $str="";
 
-  # The way phylip is, I need to know the genome names
-  # a priori. Get the genome names from the db.
-  my @rawName = sort{$a cmp $b} keys(%dist);
-
+  my @name=$self->_sortedNames(\%dist,$genome,$sortBy);
   my $maxGenomeLength=0;
-  my @name;
-  for my $name(@rawName){
-    # If the parameter was given to filter genome names,
-    # do it here.
-    my $truncatedName = _truncateFilename($name);
-    next if(@$genome && !$genome{$truncatedName});
-
-    push(@name,$name);
+  for my $name(@name){
     $maxGenomeLength=length($name) if(length($name) > $maxGenomeLength);
-  }
-
-  # We are already sorted alphabetically, so just worry
-  # about whether or not we sort by random
-  if($sortBy eq 'rand'){
-    @name = shuffle(@name);
   }
 
   my $numGenomes=@name;
