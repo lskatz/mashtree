@@ -38,6 +38,7 @@ t/04_fileoffiles.t
 t/06_jackknifingHashes.t
 t/08_bootstrap.t
 t/11_tsv-db.t
+t/12_sort-order.t
 MANIFEST
 Makefile.PL
 
